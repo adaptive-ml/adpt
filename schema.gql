@@ -1,0 +1,2019 @@
+input AbCampaignFilter {
+	active: Boolean
+	status: AbcampaignStatus
+	useCase: IdOrKey
+}
+
+type AbReport {
+	pValue: Float
+	variants: [AbVariantReport!]!
+}
+
+type AbVariantReport {
+	variant: ModelService!
+	interval: Interval
+	mean: Float!
+	feedbacks: Int!
+	comparisons: [AbVariantReportComparison!]
+}
+
+type AbVariantReportComparison {
+	variant: ModelService!
+	feedbacks: Int!
+	wins: Int!
+	losses: Int!
+	tiesGood: Int!
+	tiesBad: Int!
+}
+
+type Abcampaign {
+	id: UUID!
+	key: String!
+	name: String
+	metric: Metric
+	useCase: UseCase
+	autoDeploy: Boolean!
+	status: AbcampaignStatus!
+	feedbackType: FeedbackType!
+	trafficSplit: Float!
+	beginDate: Timestamp!
+	endDate: Timestamp
+	createdAt: Timestamp!
+	report: AbReport!
+	models: [ModelService!]!
+	feedbacks: Int!
+	hasEnoughFeedbacks: Boolean!
+}
+
+input AbcampaignCreate {
+	key: String!
+	name: String
+	metric: IdOrKey!
+	useCase: IdOrKey!
+	modelServices: [IdOrKey!]!
+	autoDeploy: Boolean!
+	trafficSplit: Float!
+	feedbackType: FeedbackType! = DIRECT
+}
+
+enum AbcampaignStatus {
+	WARMUP
+	IN_PROGRESS
+	DONE
+	CANCELLED
+}
+
+type Activity {
+	interactions: InteractionOutput!
+	feedbacks: ActivityOutput!
+}
+
+type ActivityOutput {
+	value: Int!
+	trend: Float
+}
+
+type AdaptBuiltinRecipeConfigOutput {
+	outputName: String!
+	sampleConfig: SampleConfigOutput!
+	trainingConfig: TrainingConfigOutput!
+}
+
+type AdaptCustomRecipeConfigOutput {
+	outputName: String!
+	args: JsObject!
+}
+
+union AdaptRequestConfigOutput = AdaptBuiltinRecipeConfigOutput | AdaptCustomRecipeConfigOutput
+
+input AddExternalModelInput {
+	name: String!
+	provider: ExternalModelProviderName!
+	providerData: ModelProviderDataInput
+	description: String
+}
+
+input AddHFModelInput {
+	modelId: String!
+	outputModelName: String!
+	outputModelKey: String
+	hfToken: String!
+	computePool: IdOrKey
+	numGpus: Int! = 0
+}
+
+input AddModelInput {
+	path: String!
+	name: String!
+	key: String
+}
+
+input AnthropicProviderDataInput {
+	apiKey: String!
+	externalModelId: String!
+}
+
+type ApiKey {
+	key: String!
+	createdAt: Timestamp!
+}
+
+input ApiKeyCreate {
+	user: IdOrKey!
+}
+
+union ArtifactByproducts = EvaluationByproducts
+
+input ArtifactFilter {
+	kinds: [JobArtifactKind!]
+	jobId: UUID
+}
+
+input AttachModel {
+	useCase: IdOrKey!
+	model: IdOrKey!
+	attached: Boolean! = true
+	placement: ModelPlacementInput
+	"""
+	Wait for the model to be deployed or not
+	"""
+	wait: Boolean! = false
+}
+
+type AuthProvider {
+	name: String!
+	key: String!
+	kind: AuthProviderKind!
+	loginUrl: String!
+}
+
+enum AuthProviderKind {
+	OIDC
+}
+
+input AzureProviderDataInput {
+	apiKey: String!
+	externalModelId: String!
+	endpoint: String!
+}
+
+type BaseTrainingParamsOutput {
+	learningRate: Float!
+	numEpochs: Int!
+	batchSize: Int!
+	numValidations: Int!
+}
+
+type BatchInferenceJobStageOutput {
+	totalNumSamples: Int
+	processedNumSamples: Int
+	monitoringLink: String
+}
+
+type ChatMessage {
+	role: String!
+	content: String!
+}
+
+type ComparisonFeedback {
+	id: UUID!
+	createdAt: Timestamp!
+	usecase: UseCase
+	metric: Metric
+	preferedCompletion: Completion
+	otherCompletion: Completion
+}
+
+type Completion {
+	id: UUID!
+	promptHash: String
+	chatMessages: [ChatMessage!]!
+	completion(maxLength: Int): String
+	source: CompletionSource!
+	modelService: ModelService
+	model: Model
+	directFeedbacks(filter: FeedbackFilterInput): [DirectFeedback!]!
+	comparisonFeedbacks: [ComparisonFeedback!]!
+	session: Session!
+	history: [CompletionHistoryEntryOuput!]!
+	labels(withProtected: Boolean! = false): [CompletionLabel!]!
+	createdAt: Timestamp!
+	siblingsCount(filter: ListCompletionsFilterInput!): Int!
+	metadata: CompletionMetadata!
+}
+
+input CompletionComparisonFilterInput {
+	metric: IdOrKey!
+}
+
+type CompletionConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [CompletionEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [Completion!]!
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type CompletionEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: Completion!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input CompletionFeedbackFilterInput {
+	metric: IdOrKey!
+	gt: Float
+	gte: Float
+	eq: Float
+	neq: Float
+	lt: Float
+	lte: Float
+	reasons: [String!]
+	user: UUID
+}
+
+type CompletionFeedbackFilterOutput {
+	metric: String!
+	gt: Float
+	gte: Float
+	eq: Float
+	neq: Float
+	lt: Float
+	lte: Float
+	reasons: [String!]
+	user: String
+}
+
+enum CompletionGroupBy {
+	MODEL
+	PROMPT
+}
+
+type CompletionGroupData {
+	key: String
+	count: Int!
+	directFeedbacksStats: [CompletionGroupFeedbackStats!]!
+	completions(page: CursorPageInput!, order: [OrderPair!]! = [{field: "id", order: DESC}]): CompletionConnection!
+}
+
+type CompletionGroupDataConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [CompletionGroupDataEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [CompletionGroupData!]!
+	groupBy: CompletionGroupBy!
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type CompletionGroupDataEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: CompletionGroupData!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+type CompletionGroupFeedbackStats {
+	metric: Metric!
+	feedbacks: Int!
+	average: Float
+	max: Float
+	min: Float
+	stddev: Float
+	sum: Float
+}
+
+type CompletionHistoryEntryOuput {
+	level: Int!
+	completionId: UUID!
+	prompt: String!
+	completion: String!
+	createdAt: TimestampSec!
+}
+
+type CompletionLabel {
+	key: String!
+	value: String!
+}
+
+type CompletionLabelFilterOutput {
+	key: String!
+	value: [String!]
+}
+
+input CompletionLabelValue {
+	key: String!
+	value: String!
+}
+
+type CompletionMetadata {
+	parameters: JSON
+	timings: JSON
+	system: JSON
+	usage: Usage
+}
+
+enum CompletionSource {
+	LIVE
+	OFFLINE
+	AUTOMATION
+	DATASET
+	EVALUATION
+}
+
+enum CompletionSourceOutput {
+	LIVE
+	OFFLINE
+	AUTOMATION
+}
+
+type ComputePool {
+	id: UUID!
+	key: String!
+	name: String!
+	createdAt: Timestamp!
+	allPartitions: [Partition!]!
+	partitions: [Partition!]!
+	capabilities: [ComputePoolCapability!]!
+}
+
+enum ComputePoolCapability {
+	INFERENCE
+	JOB
+}
+
+input CreateRecipeInput {
+	name: String!
+	key: String
+	description: String
+	labels: [LabelInput!]
+}
+
+input CreateToolProviderInput {
+	key: String!
+	name: String!
+	uri: String!
+	protocol: Protocol!
+}
+
+input CursorPageInput {
+	first: Int
+	after: String
+	before: String
+	last: Int
+}
+
+input CustomConfigInput {
+	description: String
+}
+
+type CustomConfigOutput {
+	description: String
+}
+
+type CustomRecipe {
+	id: UUID!
+	key: String
+	name: String!
+	editable: Boolean!
+	builtin: Boolean!
+	global: Boolean!
+	createdAt: Timestamp!
+	content: String!
+	inputSchema: JSON!
+	jsonSchema: JSON!
+	contentHash: String!
+	description: String!
+	labels(withProtected: Boolean! = true): [Label!]!
+	updatedAt: Timestamp
+	createdBy: User
+}
+
+input CustomRecipeFilterInput {
+	labels: [LabelFilter!]
+}
+
+type CustomRecipeJobDetails {
+	args: JsObject!
+	recipeHash: String!
+	artifacts: [JobArtifact!]!
+}
+
+type Dataset {
+	id: UUID!
+	key: String
+	name: String!
+	createdAt: DateTime!
+	kind: DatasetKind!
+	records: Int
+	metricsUsage: [DatasetMetricUsage!]!
+	source: DatasetSource!
+	deleted: Boolean!
+}
+
+input DatasetCreate {
+	useCase: IdOrKey!
+	name: String!
+	key: String
+	source: DatasetSource
+}
+
+input DatasetGenerate {
+	useCase: IdOrKey!
+	name: String!
+	key: String
+	computePool: IdOrKey
+	config: DatasetGenerationConfig!
+	numGpus: Int! = 1
+}
+
+input DatasetGenerationConfig @oneOf {
+	rag: RagdataGenerationConfig
+}
+
+enum DatasetKind {
+	PROMPT
+	PROMPT_COMPLETION
+	PROMPT_COMPLETION_FEEDBACK
+	PREFERENCE
+}
+
+type DatasetMetricUsage {
+	metric: Metric!
+	feedbackCount: Int!
+	comparisonCount: Int!
+}
+
+enum DatasetSource {
+	UPLOADED
+	GENERATED
+	GENERATING
+}
+
+type DatasetValidationOutput {
+	valid: Boolean!
+	message: String
+}
+
+enum DateBucketUnit {
+	DAY
+	WEEK
+	MONTH
+	QUARTER
+	YEAR
+	NO_GROUP_BY_DATE
+}
+
+"""
+Implement the DateTime<Utc> scalar
+
+The input/output is a string in RFC3339 format.
+"""
+scalar DateTime
+
+type DeleteConfirm {
+	success: Boolean!
+	details: String
+}
+
+type DirectFeedback {
+	id: UUID!
+	value: Float!
+	userId: UUID!
+	metric: Metric
+	reason: String
+	details: String
+	createdAt: Timestamp!
+}
+
+type DpotrainingParamsOutput {
+	klDivCoeff: Float!
+}
+
+type Emoji {
+	native: String!
+}
+
+input EmojiInput {
+	native: String!
+}
+
+type EvalJobStageOutput {
+	totalNumSamples: Int
+	processedNumSamples: Int
+	monitoringLink: String
+}
+
+type EvaluationAnswerRelevancyRecipe {
+	metric: Metric
+}
+
+type EvaluationByproducts {
+	evalResults: [EvaluationResult!]!
+}
+
+type EvaluationContextRelevancyRecipe {
+	metric: Metric
+}
+
+type EvaluationCustomRecipe {
+	guidelines: [Guideline!]!
+	criteria: [String!]
+	metric: Metric
+}
+
+type EvaluationFaithfulnessRecipe {
+	metric: Metric
+}
+
+type EvaluationJob {
+	id: UUID!
+	name: String!
+	createdAt: Timestamp!
+	status: EvaluationJobStatus!
+	startedAt: Timestamp
+	endedAt: Timestamp
+	durationMs: Int
+	modelServices: [ModelService!]!
+	graders: [Grader!]!
+	judgeModels: [Model!]!
+	judges: [Judge!]!
+	useCase: UseCase
+	stages: [JobStageOutput!]!
+	reports: [EvaluationResult!]!
+	createdBy: User
+	dataset: Dataset
+	sampleConfig: SampleConfigOutput
+	metrics: [Metric!]!
+	evalType: EvaluationType!
+	recipe: EvaluationRecipe
+	error: String
+}
+
+enum EvaluationJobStatus {
+	PENDING
+	RUNNING
+	COMPLETED
+	FAILED
+	CANCELED
+}
+
+union EvaluationRecipe = EvaluationCustomRecipe | EvaluationFaithfulnessRecipe | EvaluationContextRelevancyRecipe | EvaluationAnswerRelevancyRecipe
+
+type EvaluationResult {
+	modelService: ModelService!
+	dataset: Dataset
+	metric: Metric!
+	mean: Float!
+	min: Float!
+	max: Float!
+	stddev: Float!
+	sum: Float!
+	count: Int!
+	sumSquared: Float!
+	jobId: UUID!
+	artifactId: UUID
+	feedbackCount: Int!
+	judge: Judge
+	grader: Grader
+}
+
+enum EvaluationType {
+	AI_JUDGE
+	REMOTE_ENV
+	GRADERS
+	MULTI_AI_JUDGES
+}
+
+enum ExternalModelProviderName {
+	AZURE
+	OPEN_AI
+	GOOGLE
+	ANTHROPIC
+	NVIDIA
+}
+
+input FeedbackAddInput {
+	value: JSON!
+	details: String
+	reason: String
+	userId: UUID
+}
+
+input FeedbackFilterInput {
+	labels: [LabelFilter!]
+}
+
+enum FeedbackType {
+	DIRECT
+	COMPARISON
+}
+
+enum FeedbackTypeOutput {
+	DIRECT
+	PREFERENCE
+}
+
+input FeedbackUpdateInput {
+	value: JSON
+	details: String
+}
+
+input GoogleProviderDataInput {
+	apiKey: String!
+	externalModelId: String!
+}
+
+type GpuAllocation {
+	name: String!
+	numGpus: Int!
+	ranks: [Int!]!
+	createdAt: Timestamp!
+	userName: String
+	jobId: String!
+}
+
+type Grader {
+	id: UUID!
+	name: String!
+	key: String!
+	locked: Boolean!
+	graderType: GraderTypeEnum!
+	graderConfig: GraderConfig!
+	useCase: UseCase!
+	metric: Metric!
+	createdAt: Timestamp!
+	updatedAt: Timestamp!
+}
+
+union GraderConfig = JudgeConfigOutput | PrebuiltConfigOutput | RemoteConfigOutput | CustomConfigOutput
+
+input GraderConfigInput @oneOf {
+	judge: JudgeConfigInput
+	prebuilt: PrebuiltConfigInput
+	remote: RemoteConfigInput
+	custom: CustomConfigInput
+}
+
+input GraderCreateInput {
+	name: String!
+	key: String
+	graderType: GraderTypeEnum!
+	graderConfig: GraderConfigInput!
+	metric: MetricGetOrCreate
+}
+
+enum GraderTypeEnum {
+	JUDGE
+	PREBUILT
+	REMOTE
+	CUSTOM
+}
+
+input GraderUpdateInput {
+	name: String
+	graderType: GraderTypeEnum
+	graderConfig: GraderConfigInput
+}
+
+type GrpotrainingParamsOutput {
+	klDivCoeff: Float!
+	steps: Int
+}
+
+type Guideline {
+	name: String!
+	description: String!
+}
+
+type GuidelinesTrainingParamsOutput {
+	judgeModel: String!
+	judgeModelPrompt: [Guideline!]!
+}
+
+"""
+id or key for the entity
+"""
+scalar IdOrKey
+
+"""
+DateTime that could be read from several forms:
+- string RFC 3339 or ISO 8601: '2024-02-21T09:51:03Z'
+- string date (without time). Time is set as start of day: '2024-02-21'
+- number as epoch milliseconds: 1708457468860
+- relative string: 'now' or 'now - 1 month'. Format is 'now +/- <amount> <unit> |? <timezone?>'
+
+"""
+scalar InputDatetime
+
+type InteractionOutput {
+	value: Int!
+	perSecond: Float
+	trend: Float
+}
+
+type Interval {
+	start: Float!
+	middle: Float!
+	end: Float!
+}
+
+"""
+A scalar that can represent any JSON value.
+"""
+scalar JSON
+
+type Job {
+	id: UUID!
+	useCase: UseCase
+	name: String!
+	status: JobStatus!
+	createdAt: Timestamp!
+	createdBy: User
+	startedAt: Timestamp
+	endedAt: Timestamp
+	durationMs: Int
+	stages: [JobStageOutput!]!
+	progress: Float!
+	error: String
+	kind: JobKind!
+	recipe: CustomRecipe
+	details: CustomRecipeJobDetails
+}
+
+type JobArtifact {
+	id: UUID!
+	jobId: UUID!
+	name: String!
+	kind: JobArtifactKind!
+	uri: String
+	metadata: JSON!
+	createdAt: Timestamp!
+	job: Job
+	downloadUrl: String
+	byproducts: ArtifactByproducts
+}
+
+input JobArtifactFilter {
+	kinds: [JobArtifactKind!]!
+}
+
+enum JobArtifactKind {
+	EVALUATION
+	CUSTOM
+}
+
+type JobConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [JobEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [Job!]!
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type JobEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: Job!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input JobInput {
+	recipe: IdOrKey!
+	useCase: IdOrKey!
+	args: JsObject!
+	name: String
+	computePool: IdOrKey
+	numGpus: Int!
+}
+
+enum JobKind {
+	TRAINING
+	EVALUATION
+	DATASET_GENERATION
+	MODEL_CONVERSION
+	CUSTOM
+}
+
+union JobStageInfoOutput = TrainingJobStageOutput | EvalJobStageOutput | BatchInferenceJobStageOutput
+
+type JobStageOutput {
+	name: String!
+	status: JobStatusOutput!
+	parent: String
+	stageId: Int!
+	info: JobStageInfoOutput
+	startedAt: Timestamp
+	endedAt: Timestamp
+	durationMs: Int
+}
+
+enum JobStatus {
+	PENDING
+	RUNNING
+	COMPLETED
+	FAILED
+	CANCELED
+}
+
+enum JobStatusOutput {
+	PENDING
+	RUNNING
+	DONE
+	CANCELLED
+	ERROR
+}
+
+"""
+A dictionary where keys are strings and values are JSON values
+"""
+scalar JsObject
+
+type Judge {
+	id: String!
+	key: String!
+	version: Int!
+	name: String!
+	criteria: String
+	prebuilt: String
+	examples: [JudgeExample!]
+	capabilities: [JudgeCapability!]!
+	model: Model!
+	useCaseId: UUID!
+	metric: Metric!
+	createdAt: Timestamp!
+	updatedAt: Timestamp!
+}
+
+enum JudgeCapability {
+	TRAINING
+	EVALUATION
+}
+
+input JudgeConfigInput {
+	model: IdOrKey!
+	criteria: String!
+	examples: [JudgeExampleInput!]!
+}
+
+type JudgeConfigOutput {
+	criteria: String!
+	examples: [JudgeExample!]!
+	model: Model!
+}
+
+input JudgeCreate {
+	key: String
+	name: String!
+	criteria: String!
+	examples: [JudgeExampleInput!]! = []
+	model: IdOrKey!
+	metric: IdOrKey
+}
+
+type JudgeExample {
+	input: [ChatMessage!]!
+	output: String!
+	pass: Boolean!
+	reasoning: String
+}
+
+input JudgeExampleInput {
+	input: [JudgeExampleInputTurnEntry!]!
+	reasoning: String
+	output: String!
+	pass: Boolean!
+	id: UUID
+}
+
+input JudgeExampleInputTurnEntry {
+	role: String!
+	content: String!
+}
+
+type JudgeTrainingParamsOutput {
+	judges: [Judge!]!
+}
+
+input JudgeUpdate {
+	name: String
+	criteria: String
+	examples: [JudgeExampleInput!]
+	model: IdOrKey
+}
+
+type Label {
+	key: String!
+	value: String!
+}
+
+input LabelFilter {
+	key: String!
+	value: [String!]
+}
+
+input LabelInput {
+	key: String!
+	value: String!
+}
+
+type LabelKeyUsage {
+	key: String!
+	count: Int!
+	values: [LabelValueUsage!]!
+	lastUsed: Timestamp!
+}
+
+type LabelUsage {
+	keys: [LabelKeyUsage!]!
+}
+
+type LabelValueUsage {
+	value: String!
+	count: Int!
+	lastUsed: Timestamp!
+}
+
+input ListCompletionsFilterInput {
+	useCase: IdOrKey!
+	models: [IdOrKey!]
+	timerange: TimeRange
+	sessionId: UUID
+	userId: UUID
+	feedbacks: [CompletionFeedbackFilterInput!]
+	comparisons: [CompletionComparisonFilterInput!]
+	labels: [LabelFilter!]
+	promptHash: String
+	completionId: UUID
+	source: [CompletionSource!]
+}
+
+type ListCompletionsFilterOutput {
+	useCase: String!
+	models: [String!]
+	timerange: TimeRangeOutput
+	sessionId: UUID
+	userId: UUID
+	feedbacks: [CompletionFeedbackFilterOutput!]
+	labels: [CompletionLabelFilterOutput!]
+	promptHash: String
+	completionId: UUID
+	tags: [String!]
+	source: [CompletionSourceOutput!]
+}
+
+input ListJobsFilterInput {
+	useCase: IdOrKey
+	kind: [JobKind!]
+	status: [JobStatus!]
+	timerange: TimeRange
+	customRecipes: [IdOrKey!]
+	artifacts: JobArtifactFilter
+}
+
+type MetaObject {
+	authProviders: ProviderList!
+}
+
+type Metric {
+	id: UUID!
+	key: String!
+	name: String!
+	createdAt: Timestamp!
+	kind: MetricKind!
+	description: String!
+	scoringType: MetricScoringType!
+	"""
+	Return the list of UseCase which use this metric
+	"""
+	useCases(filter: UseCaseFilter! = {isArchived: false}): [UseCase!]!
+	activity(timerange: TimeRange): MetricActivity!
+	hasDirectFeedbacks: Boolean!
+	hasComparisonFeedbacks: Boolean!
+}
+
+type MetricActivity {
+	feedbacks: ActivityOutput!
+}
+
+enum MetricAggregation {
+	AVERAGE
+	SUM
+	COUNT
+}
+
+input MetricCreate {
+	name: String!
+	key: String
+	kind: MetricKind!
+	scoringType: MetricScoringType! = HIGHER_IS_BETTER
+	description: String
+}
+
+input MetricGetOrCreate @oneOf {
+	existing: IdOrKey
+	new: MetricCreate
+}
+
+enum MetricKind {
+	SCALAR
+	BOOL
+}
+
+input MetricLink {
+	useCase: IdOrKey!
+	metric: IdOrKey!
+}
+
+enum MetricScoringType {
+	HIGHER_IS_BETTER
+	LOWER_IS_BETTER
+}
+
+union MetricTrainingParamsMetadataOutput = ScalarMetricConfigOutput
+
+type MetricTrainingParamsOutput {
+	metricKey: String!
+	metricMetadata: MetricTrainingParamsMetadataOutput
+}
+
+input MetricTrendInput {
+	timerange: TimeRange
+	aggregation: MetricAggregation! = AVERAGE
+}
+
+input MetricUnlink {
+	useCase: IdOrKey!
+	metric: IdOrKey!
+}
+
+type MetricWithContext {
+	id: UUID!
+	key: String!
+	name: String!
+	kind: MetricKind!
+	scoringType: MetricScoringType!
+	description: String!
+	createdAt: DateTime!
+	feedbackCount(timerange: TimeRange): Int!
+	comparisonCount(timerange: TimeRange): Int!
+	trend(input: MetricTrendInput! = {timerange: null, aggregation: AVERAGE}): TrendResult
+	timeseries(input: TimeseriesInput!): [Timeseries!]!
+	hasComparisonFeedbacks: Boolean!
+	hasDirectFeedbacks: Boolean!
+}
+
+type Model {
+	id: UUID!
+	name: String!
+	key: String!
+	createdAt: Timestamp!
+	"""
+	indicates if this model is spawned in mangrove or not
+	"""
+	online: ModelOnline!
+	error: String
+	activity(timerange: TimeRange): Activity!
+	metrics: [MetricWithContext!]!
+	"""
+	Return the list of UseCase which use this model
+	"""
+	useCases(filter: UseCaseFilter! = {isArchived: false}, attached: Boolean! = true): [UseCase!]!
+	modelServices(filter: UseCaseFilter! = {isArchived: false}, attached: Boolean! = true): [ModelService!]!
+	providerName: ProviderName!
+	isExternal: Boolean!
+	order: Int!
+	inStorage: Boolean!
+	isAdapter: Boolean!
+	backbone: Model
+	"""
+	indicates if a training is pending or running for this model
+	"""
+	isTraining: Boolean!
+	trainingJob: TrainingJob
+	kind: ModelKindFilter!
+	size: String
+	computeConfig: ModelComputeConfigOutput
+}
+
+input ModelComputeConfigInput {
+	tp: Int
+	kvCacheLen: Int
+	maxSeqLen: Int
+}
+
+type ModelComputeConfigOutput {
+	tp: Int!
+	kvCacheLen: Int!
+	maxSeqLen: Int!
+}
+
+input ModelFilter {
+	inStorage: Boolean
+	available: Boolean
+	trainable: Boolean
+	kind: [ModelKindFilter!]
+	viewAll: Boolean
+	online: [ModelOnline!]
+}
+
+enum ModelKindFilter {
+	Embedding
+	Generation
+}
+
+enum ModelOnline {
+	ONLINE
+	PENDING
+	OFFLINE
+	ERROR
+}
+
+input ModelPlacementInput {
+	computePools: [IdOrKey!]!
+	maxTtftMs: Int
+}
+
+type ModelPlacementOutput {
+	computePools: [IdOrKey!]!
+	maxTtftMs: Int
+}
+
+input ModelProviderDataInput @oneOf {
+	azure: AzureProviderDataInput
+	openAI: OpenAIProviderDataInput
+	google: GoogleProviderDataInput
+	anthropic: AnthropicProviderDataInput
+	nvidia: NvidiaProviderDataInput
+}
+
+type ModelService {
+	status: ModelserviceStatus!
+	error: String
+	id: UUID!
+	useCaseId: UUID!
+	key: String!
+	name: String!
+	createdAt: Timestamp!
+	model: Model!
+	attached: Boolean!
+	isDefault: Boolean!
+	desiredOnline: Boolean!
+	activity(timerange: TimeRange): Activity!
+	systemPromptTemplate: SystemPromptTemplate
+	metrics: [MetricWithContext!]!
+	abCampaigns(filter: AbCampaignFilter! = {active: null, status: null, useCase: null}): [Abcampaign!]!
+	placement: ModelPlacementOutput
+	toolProviders: [ToolProvider!]!
+}
+
+input ModelServiceDisconnect {
+	useCase: IdOrKey!
+	modelService: IdOrKey!
+}
+
+input ModelServiceFilter {
+	model: IdOrKey
+	kind: [ModelKindFilter!]
+}
+
+enum ModelserviceStatus {
+	PENDING
+	ONLINE
+	OFFLINE
+	DETACHED
+	TURNED_OFF
+	ERROR
+}
+
+type MutationRoot {
+	createAbCampaign(input: AbcampaignCreate!): Abcampaign!
+	cancelAbCampaign(input: IdOrKey!): String!
+	createCustomRecipe(useCase: IdOrKey!, input: CreateRecipeInput!, file: Upload!): CustomRecipe!
+	updateCustomRecipe(useCase: IdOrKey!, id: IdOrKey!, input: UpdateRecipeInput!, file: Upload): CustomRecipe!
+	deleteCustomRecipe(useCase: IdOrKey!, id: IdOrKey!): Boolean!
+	createDataset(input: DatasetCreate!, file: Upload!): Dataset!
+	generateDataset(input: DatasetGenerate!, file: Upload!): Dataset!
+	deleteDataset(idOrKey: IdOrKey!, useCase: IdOrKey!): Boolean!
+	updateCompletion(input: UpdateCompletion!): Completion!
+	createSystemPromptTemplate(input: SystemPromptTemplateCreate!): SystemPromptTemplate!
+	deriveSystemPromptTemplate(input: SystemPromptTemplateUpdate!): SystemPromptTemplate!
+	createJob(input: JobInput!): Job!
+	cancelJob(id: UUID!): Job!
+	createMetric(input: MetricCreate!): Metric!
+	"""
+	Link a metric and a use case. Can also be used to update the `isPinned`
+	"""
+	linkMetric(input: MetricLink!): MetricWithContext!
+	unlinkMetric(input: MetricUnlink!): String!
+	attachModel(input: AttachModel!): ModelService!
+	disconnectModel(input: ModelServiceDisconnect!): String!
+	updateModelService(input: UpdateModelService!): ModelService!
+	deployModel(idOrKey: IdOrKey!, wait: Boolean! = false, placement: ModelPlacementInput): String!
+	"""
+	If a model is used by several use cases with `attached = true`, you need to specify 'force = true' to be able to deactivate the model
+	"""
+	terminateModel(idOrKey: IdOrKey!, force: Boolean! = false): String!
+	addExternalModel(input: AddExternalModelInput!): Model!
+	addModel(input: AddModelInput!): Model!
+	importHfModel(input: AddHFModelInput!): String!
+	updateModelComputeConfig(idOrKey: IdOrKey!, input: ModelComputeConfigInput!): Model!
+	addRemoteEnv(input: RemoteEnvCreate!): RemoteEnv!
+	removeRemoteEnv(idOrKey: IdOrKey!): String!
+	testRemoteEnv(input: RemoteEnvCreate!): RemoteEnvTest!
+	validateDatasetSchema(remoteEnv: IdOrKey!, dataset: IdOrKey!, usecase: IdOrKey!): DatasetValidationOutput!
+	createUseCase(input: UseCaseCreate!): UseCase!
+	updateUseCase(idOrKey: IdOrKey!, input: UseCaseUpdate!): UseCase!
+	shareUseCase(idOrKey: IdOrKey!, input: UseCaseShares!): UseCase!
+	createApiKey(input: ApiKeyCreate!): ApiKey!
+	setTeamMember(input: TeamMemberSet!): TeamMember!
+	removeTeamMember(input: TeamMemberRemove!): User!
+	createUser(input: UserCreate!): User!
+	deleteUser(user: IdOrKey!): User!
+	createRole(input: RoleCreate!): Role!
+	createTeam(input: TeamCreate!): Team!
+	updateFeedback(id: UUID!, input: FeedbackUpdateInput!): DirectFeedback!
+	addDirectFeedback(completionId: UUID!, metricId: IdOrKey!, input: FeedbackAddInput!): DirectFeedback!
+	createJudge(useCase: IdOrKey!, input: JudgeCreate!): Judge!
+	createPrebuiltJudge(useCase: IdOrKey!, input: PrebuiltJudgeCreate!): Judge!
+	updateJudge(useCase: IdOrKey!, key: String!, input: JudgeUpdate!): Judge!
+	deleteJudge(useCase: IdOrKey!, key: String!): DeleteConfirm!
+	createGrader(useCase: IdOrKey!, input: GraderCreateInput!): Grader!
+	updateGrader(useCase: IdOrKey!, id: IdOrKey!, input: GraderUpdateInput!): Grader!
+	deleteGrader(useCase: IdOrKey!, id: IdOrKey!): DeleteConfirm!
+	lockGrader(useCase: IdOrKey!, id: IdOrKey!, locked: Boolean!): Grader!
+	createToolProvider(useCase: IdOrKey!, input: CreateToolProviderInput!): ToolProvider!
+	updateToolProvider(idOrKey: IdOrKey!, useCase: IdOrKey!, input: UpdateToolProviderInput!): ToolProvider!
+	deleteToolProvider(idOrKey: IdOrKey!, useCase: IdOrKey!): Boolean!
+}
+
+input NvidiaProviderDataInput {
+	externalModelId: String!
+	endpoint: String!
+}
+
+enum OpenAIModel {
+	GPT41
+	GPT4O
+	GPT4O_MINI
+	O1
+	O1_MINI
+	O3_MINI
+	O4_MINI
+	O3
+	GPT4
+	GPT4_TURBO
+	GPT3_5_TURBO
+	GPT5
+	GPT5_MINI
+	GPT5_NANO
+	GPT41_MINI
+}
+
+input OpenAIProviderDataInput {
+	apiKey: String!
+	externalModelId: OpenAIModel!
+}
+
+input OrderPair {
+	field: String!
+	order: SortDirection!
+}
+
+"""
+Information about pagination in a connection
+"""
+type PageInfo {
+	"""
+	When paginating backwards, are there more items?
+	"""
+	hasPreviousPage: Boolean!
+	"""
+	When paginating forwards, are there more items?
+	"""
+	hasNextPage: Boolean!
+	"""
+	When paginating backwards, the cursor to continue.
+	"""
+	startCursor: String
+	"""
+	When paginating forwards, the cursor to continue.
+	"""
+	endCursor: String
+}
+
+type Partition {
+	id: UUID!
+	key: String!
+	computePool: ComputePool
+	status: PartitionStatus!
+	url: String!
+	worldSize: Int!
+	gpuTotal: Int
+	gpuAllocated: Int
+	gpuAllocations: [GpuAllocation!]
+	gpuTypes: String!
+	createdAt: Timestamp!
+	onlineModels: [Model!]!
+}
+
+enum PartitionStatus {
+	ONLINE
+	OFFLINE
+}
+
+type PpotrainingParamsOutput {
+	klDivCoeff: Float!
+	steps: Int
+}
+
+type PrebuiltConfigDefinition {
+	key: PrebuiltCriteriaKey!
+	name: String!
+	feedbackKey: String!
+	description: String!
+}
+
+input PrebuiltConfigInput {
+	key: PrebuiltCriteriaKey!
+	model: IdOrKey!
+}
+
+type PrebuiltConfigOutput {
+	criteria: PrebuiltConfigDefinition!
+	model: Model!
+}
+
+type PrebuiltCriteria {
+	key: String!
+	name: String!
+	feedback: Metric!
+	description: String!
+}
+
+enum PrebuiltCriteriaKey {
+	FAITHFULNESS
+	ANSWER_RELEVANCY
+	CONTEXT_RELEVANCY
+}
+
+input PrebuiltJudgeCreate {
+	key: String
+	name: String!
+	model: IdOrKey!
+	prebuiltCriteriaKey: PrebuiltCriteriaKey!
+}
+
+enum Protocol {
+	HTTP
+}
+
+type ProviderList {
+	providers: [AuthProvider!]!
+}
+
+enum ProviderName {
+	AZURE
+	OPEN_AI
+	HARMONY
+	GOOGLE
+	ANTHROPIC
+	NVIDIA
+}
+
+type QueryRoot {
+	abCampaigns(filter: AbCampaignFilter! = {active: null, status: null, useCase: null}): [Abcampaign!]!
+	abCampaign(idOrKey: IdOrKey!): Abcampaign
+	customRecipes(useCase: IdOrKey!, filter: CustomRecipeFilterInput! = {labels: null}): [CustomRecipe!]!
+	customRecipe(idOrKey: IdOrKey!, useCase: IdOrKey!): CustomRecipe!
+	datasets(useCase: IdOrKey!): [Dataset!]!
+	dataset(idOrKey: IdOrKey!, useCase: IdOrKey!): Dataset
+	completions(filter: ListCompletionsFilterInput!, page: CursorPageInput!, order: [OrderPair!]! = [{field: "id", order: DESC}]): CompletionConnection!
+	completionsGrouped(filter: ListCompletionsFilterInput!, feedbackFilter: FeedbackFilterInput! = {labels: null}, groupBy: CompletionGroupBy!, page: CursorPageInput!, order: [OrderPair!]! = [{field: "group", order: ASC}]): CompletionGroupDataConnection!
+	completion(useCase: IdOrKey!, id: UUID!): Completion
+	completionDownloadUrl(filter: ListCompletionsFilterInput!): String!
+	modelUsage(filter: UsageFilterInput!): [UsageAggregateItem!]!
+	modelUsageByUseCase(filter: UsagePerUseCaseFilterInput!): [UsageAggregatePerUseCaseItem!]!
+	systemPromptTemplates: [SystemPromptTemplate!]!
+	jobs(page: CursorPageInput!, filter: ListJobsFilterInput! = {useCase: null, kind: null, status: null, timerange: null, customRecipes: null, artifacts: null}, order: [OrderPair!]! = [{field: "id", order: DESC}]): JobConnection!
+	job(id: UUID!): Job
+	metrics: [Metric!]!
+	metric(idOrKey: IdOrKey!): Metric
+	"""
+	List all models that were created in the app
+	"""
+	models(filter: ModelFilter! = {inStorage: null, available: null, trainable: null, kind: [Generation], viewAll: false, online: null}): [Model!]!
+	model(idOrKey: IdOrKey!): Model
+	allPartitions: [Partition!]!
+	partitions: [Partition!]!
+	computePools: [ComputePool!]!
+	remoteEnvs: [RemoteEnv!]!
+	useCases(filter: UseCaseFilter! = {isArchived: false}): [UseCase!]!
+	useCase(idOrKey: IdOrKey!): UseCase
+	"""
+	Currently logged in user
+	"""
+	me: User
+	users: [User!]!
+	roles: [Role!]!
+	permissions: [String!]!
+	teams: [Team!]!
+	judge(id: IdOrKey!, useCase: IdOrKey!, version: Int): Judge!
+	judges(useCase: IdOrKey!): [Judge!]!
+	judgeVersions(useCase: IdOrKey!, key: String!): [Judge!]!
+	prebuiltCriteria: [PrebuiltCriteria!]!
+	grader(id: IdOrKey!, useCase: IdOrKey!): Grader!
+	graders(useCase: IdOrKey!): [Grader!]!
+	prebuiltConfigs: [PrebuiltConfigDefinition!]!
+	testRemoteEnv2(url: String!): RemoteConfigOutput!
+	validateDataSchemaForGrader(grader: IdOrKey!, dataset: IdOrKey!, usecase: IdOrKey!): Boolean!
+	toolProvider(idOrKey: IdOrKey!, useCase: IdOrKey!): ToolProvider
+	artifacts(useCase: IdOrKey!, filter: ArtifactFilter): [JobArtifact!]!
+	artifact(useCase: IdOrKey!, id: UUID!): JobArtifact
+	meta: MetaObject!
+}
+
+input RagdataGenerationConfig {
+	chunksPerQuestion: Int!
+	model: IdOrKey!
+	systemPrompt: String
+}
+
+input RemoteConfigInput {
+	url: String!
+}
+
+type RemoteConfigOutput {
+	url: String!
+	version: String!
+	description: String!
+}
+
+type RemoteEnv {
+	id: UUID!
+	key: String!
+	name: String!
+	url: String!
+	description: String!
+	createdAt: Timestamp!
+	version: String!
+	status: RemoteEnvStatus!
+	metadataSchema: JSON
+}
+
+input RemoteEnvCreate {
+	url: String!
+	key: String
+	name: String
+	description: String
+}
+
+enum RemoteEnvStatus {
+	ONLINE
+	OFFLINE
+}
+
+union RemoteEnvTest = RemoteEnvTestOffline | RemoteEnvTestOnline
+
+type RemoteEnvTestOffline {
+	error: String!
+}
+
+type RemoteEnvTestOnline {
+	name: String!
+	version: String!
+	description: String!
+}
+
+type RewardServerTrainingParamsOutput {
+	remoteEnvId: String!
+}
+
+type Role {
+	id: UUID!
+	key: String!
+	name: String!
+	createdAt: Timestamp!
+	permissions: [String!]!
+}
+
+input RoleCreate {
+	key: String
+	name: String!
+	permissions: [String!]!
+}
+
+type SampleConfigOutput {
+	feedbackType: FeedbackTypeOutput
+	datasource: SampleDatasourceOutput!
+}
+
+type SampleDatasourceCompletionsOutput {
+	selectionType: SelectionTypeOutput!
+	maxSamples: Int
+	filter: ListCompletionsFilterOutput
+}
+
+type SampleDatasourceDatasetOutput {
+	datasetKey: IdOrKey!
+}
+
+union SampleDatasourceOutput = SampleDatasourceCompletionsOutput | SampleDatasourceDatasetOutput
+
+type ScalarMetricConfigOutput {
+	threshold: Float
+}
+
+enum SelectionTypeOutput {
+	ALL
+	RANDOM
+	LAST
+}
+
+type Session {
+	id: UUID!
+	turns: [Completion!]!
+}
+
+type Settings {
+	defaultMetric: MetricWithContext
+}
+
+type SfttrainingParamsOutput {
+	empty: String
+}
+
+type Share {
+	team: Team!
+	role: Role!
+	isOwner: Boolean!
+}
+
+enum SortDirection {
+	ASC
+	DESC
+}
+
+type SystemPromptTemplate {
+	id: UUID!
+	name: String!
+	template: String!
+	arguments: [String!]!
+	createdAt: DateTime!
+	createdBy: UUID!
+}
+
+input SystemPromptTemplateCreate {
+	name: String!
+	template: String!
+}
+
+input SystemPromptTemplateUpdate {
+	systemPromptTemplate: UUID!
+	name: String
+	template: String!
+	updateModelServices: Boolean! = false
+}
+
+type Team {
+	id: UUID!
+	key: String!
+	name: String!
+	createdAt: Timestamp!
+}
+
+input TeamCreate {
+	key: String
+	name: String!
+}
+
+type TeamMember {
+	user: User!
+	team: Team!
+	role: Role!
+}
+
+input TeamMemberRemove {
+	user: IdOrKey!
+	team: IdOrKey!
+}
+
+input TeamMemberSet {
+	user: IdOrKey!
+	team: IdOrKey!
+	role: IdOrKey!
+}
+
+type TeamWithrole {
+	team: Team!
+	role: Role!
+}
+
+input TimeRange {
+	from: InputDatetime!
+	to: InputDatetime!
+}
+
+type TimeRangeOutput {
+	from: DateTime!
+	to: DateTime!
+}
+
+type Timeseries {
+	model: Model
+	timeBuckets: [Timestamp!]!
+	count: [Int!]!
+	values: [Float]!
+	aggregation: MetricAggregation!
+}
+
+input TimeseriesInput {
+	interval: TimeseriesInterval!
+	timerange: TimeRange
+	timezone: String
+	byModel: Boolean! = false
+	aggregation: MetricAggregation! = AVERAGE
+}
+
+enum TimeseriesInterval {
+	HOUR
+	DAY
+	WEEK
+	MONTH
+	QUARTER
+	YEAR
+}
+
+"""
+Unix timestamp in milliseconds
+"""
+scalar Timestamp
+
+"""
+Unix timestamp in seconds
+"""
+scalar TimestampSec
+
+type ToolProvider {
+	id: UUID!
+	key: String!
+	name: String!
+	createdAt: Timestamp!
+	uri: String!
+	protocol: Protocol!
+}
+
+type TrainingConfigOutput {
+	baseTrainingParams: BaseTrainingParamsOutput!
+	trainingMetadata: TrainingMetadataOutput!
+	trainingObjective: TrainingObjectiveOutput!
+}
+
+type TrainingJob {
+	id: UUID!
+	name: String!
+	status: TrainingJobStatus!
+	createdAt: Timestamp!
+	startedAt: Timestamp
+	endedAt: Timestamp
+	durationMs: Int
+	stages: [JobStageOutput!]!
+	childModel: Model
+	parentModel: Model
+	checkpoints: [Model!]!
+	useCase: UseCase
+	config: AdaptRequestConfigOutput!
+	error: String
+	createdBy: User
+}
+
+type TrainingJobStageOutput {
+	monitoringLink: String
+	totalNumSamples: Int
+	processedNumSamples: Int
+	checkpoints: [String!]!
+}
+
+enum TrainingJobStatus {
+	PENDING
+	RUNNING
+	COMPLETED
+	FAILED
+	CANCELED
+}
+
+type TrainingMetadataOutput {
+	trainingType: TrainingMetadataOutputTrainingType!
+	alignmentMethod: TrainingMetadataOutputAlignmentMethod!
+	parameters: TrainingMetadataOutputParameters
+}
+
+enum TrainingMetadataOutputAlignmentMethod {
+	DPO
+	PPO
+	SFT
+	GRPO
+}
+
+union TrainingMetadataOutputParameters = DpotrainingParamsOutput | PpotrainingParamsOutput | GrpotrainingParamsOutput
+
+enum TrainingMetadataOutputTrainingType {
+	FULL_WEIGHTS
+	PARAMETER_EFFICIENT
+}
+
+union TrainingObjectiveOutput = MetricTrainingParamsOutput | JudgeTrainingParamsOutput | GuidelinesTrainingParamsOutput | SfttrainingParamsOutput | RewardServerTrainingParamsOutput
+
+type TrendResult {
+	trend: Float!
+	previous: Float!
+	current: Float!
+}
+
+"""
+A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
+Strings within GraphQL. UUIDs are used to assign unique identifiers to
+entities without requiring a central allocating authority.
+
+# References
+
+* [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
+* [RFC4122: A Universally Unique Identifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+"""
+scalar UUID
+
+type UnitConfig {
+	symbol: String!
+	position: UnitPosition!
+}
+
+input UnitConfigInput {
+	symbol: String!
+	position: UnitPosition!
+}
+
+enum UnitPosition {
+	LEFT
+	RIGHT
+}
+
+input UpdateCompletion {
+	id: UUID!
+	"""
+	remove some label value. This operation is atomic
+	"""
+	removeLabels: [CompletionLabelValue!]
+	"""
+	add a label value. This operation is atomic
+	"""
+	addLabels: [CompletionLabelValue!]
+	"""
+	set the completion labels to this list. If you want to only add or remove specific labels,
+	it's better to use `add_labels` or `remove_labels`
+	"""
+	setLabels: [CompletionLabelValue!]
+	"""
+	set metadata associated with this prompt for use with external reward servers
+	"""
+	metadata: JSON
+}
+
+input UpdateModelService {
+	useCase: IdOrKey!
+	modelService: IdOrKey!
+	isDefault: Boolean
+	attached: Boolean
+	desiredOnline: Boolean
+	name: String
+	systemPromptTemplate: UUID
+	placement: ModelPlacementInput
+	toolProviders: [IdOrKey!]
+}
+
+input UpdateRecipeInput {
+	name: String
+	description: String
+	labels: [LabelInput!]
+}
+
+input UpdateToolProviderInput {
+	name: String
+	uri: String
+	protocol: Protocol
+}
+
+scalar Upload
+
+type Usage {
+	completionTokens: Int!
+	promptTokens: Int!
+	totalTokens: Int!
+}
+
+type UsageAggregateItem {
+	bucketTs: Int!
+	promptTokens: Int!
+	completionTokens: Int!
+	totalTokens: Int!
+	interactions: Int!
+}
+
+type UsageAggregatePerUseCaseItem {
+	useCase: UseCaseItem!
+	modelService: ModelService!
+	promptTokens: Int!
+	completionTokens: Int!
+	totalTokens: Int!
+	interactions: Int!
+}
+
+input UsageFilterInput {
+	modelId: UUID!
+	timerange: TimeRange!
+	unit: DateBucketUnit!
+}
+
+input UsagePerUseCaseFilterInput {
+	modelId: UUID!
+	timerange: TimeRange!
+}
+
+type UseCase {
+	id: UUID!
+	name: String!
+	key: String!
+	description: String!
+	createdAt: Timestamp!
+	isArchived: Boolean!
+	modelServices(filter: ModelServiceFilter = null): [ModelService!]!
+	modelService(idOrKey: IdOrKey!): ModelService
+	defaultModelService: ModelService
+	activity(timerange: TimeRange): Activity!
+	metrics: [MetricWithContext!]!
+	metric(metric: IdOrKey!): MetricWithContext
+	abCampaigns(filter: AbCampaignFilter! = {active: null, status: null, useCase: null}): [Abcampaign!]!
+	autoEvals: [EvaluationJob!]!
+	trainingJobs: [TrainingJob!]!
+	widgets: [Widget!]!
+	metadata: UseCaseMetadata!
+	permissions: [String!]!
+	shares: [Share!]!
+	settings: Settings!
+	labelUsage: LabelUsage!
+	toolProviders: [ToolProvider!]!
+}
+
+input UseCaseCreate {
+	name: String!
+	team: IdOrKey
+	key: String
+	description: String
+	gradientColor: String
+	metadata: UseCaseMetadataInput
+	settings: UseCaseSettingsInput
+}
+
+input UseCaseFilter {
+	isArchived: Boolean
+}
+
+type UseCaseItem {
+	id: UUID!
+	key: String!
+	name: String!
+	description: String!
+}
+
+type UseCaseMetadata {
+	emoji: Emoji
+}
+
+input UseCaseMetadataInput {
+	emoji: EmojiInput
+}
+
+input UseCaseSettingsInput {
+	defaultMetric: IdOrKey
+}
+
+input UseCaseShareInput {
+	team: IdOrKey!
+	role: IdOrKey!
+	isOwner: Boolean!
+}
+
+input UseCaseShares {
+	shares: [UseCaseShareInput!]!
+}
+
+input UseCaseUpdate {
+	name: String
+	description: String
+	widgets: [WidgetInput!]
+	metadata: UseCaseMetadataInput
+	settings: UseCaseSettingsInput
+	isArchived: Boolean
+}
+
+type User {
+	id: UUID!
+	email: String!
+	name: String!
+	createdAt: Timestamp!
+	deleted: Boolean!
+	deletedAt: Timestamp
+	teams: [TeamWithrole!]!
+	apiKeys: [ApiKey!]!
+}
+
+input UserCreate {
+	email: String!
+	name: String!
+	teams: [UserCreateTeamWithRole!]!
+}
+
+input UserCreateTeamWithRole {
+	team: IdOrKey!
+	role: IdOrKey!
+}
+
+type Widget {
+	title: String!
+	metric: String!
+	aggregation: MetricAggregation!
+	unit: UnitConfig!
+}
+
+input WidgetInput {
+	title: String!
+	metric: String!
+	aggregation: MetricAggregation!
+	unit: UnitConfigInput!
+}
+
+"""
+Directs the executor to include this field or fragment only when the `if` argument is true.
+"""
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Indicates that an Input Object is a OneOf Input Object (and thus requires exactly one of its field be provided)
+"""
+directive @oneOf on INPUT_OBJECT
+"""
+Directs the executor to skip this field or fragment when the `if` argument is true.
+"""
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Provides a scalar specification URL for specifying the behavior of custom scalar types.
+"""
+directive @specifiedBy(url: String!) on SCALAR
+schema {
+	query: QueryRoot
+	mutation: MutationRoot
+}
+

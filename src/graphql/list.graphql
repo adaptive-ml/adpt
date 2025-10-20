@@ -1,0 +1,7 @@
+query GetCustomRecipes($usecase: IdOrKey!) {
+  customRecipes(useCase: $usecase, filter: {}) {
+    key
+    name
+    description
+  }
+}

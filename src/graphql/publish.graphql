@@ -1,0 +1,15 @@
+mutation PublishCustomRecipe(
+    $file: Upload!
+    $name: String
+    $key: String
+    $usecase: IdOrKey!
+) {
+    createCustomRecipe(
+        input: { name: $name, key: $key }
+        useCase: $usecase
+        file: $file
+    ) {
+        id
+        key
+    }
+}

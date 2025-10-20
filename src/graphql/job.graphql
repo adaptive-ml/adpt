@@ -1,0 +1,44 @@
+query GetJob($id: UUID!) {
+    job(id: $id) {
+        id
+        createdAt
+        durationMs
+        endedAt
+        error
+        name
+        status
+        progress
+        recipe {
+            id
+            key
+            name
+        }
+        stages {
+            durationMs
+            endedAt
+            info {
+                __typename
+                ... on TrainingJobStageOutput {
+                    monitoringLink
+                    totalNumSamples
+                    processedNumSamples
+                }
+                ... on EvalJobStageOutput {
+                    monitoringLink
+                    totalNumSamples
+                    processedNumSamples
+                }
+                ... on BatchInferenceJobStageOutput {
+                    monitoringLink
+                    totalNumSamples
+                    processedNumSamples
+                }
+            }
+            name
+            stageId
+            startedAt
+            status
+        }
+        startedAt
+    }
+}
