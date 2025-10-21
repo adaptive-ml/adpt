@@ -19,8 +19,6 @@ jobs:
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.85.0
 
       - name: Install system dependencies
         run: |
@@ -48,8 +46,6 @@ jobs:
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.85.0
 
       - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
