@@ -8,6 +8,12 @@ A command line tool for interacting with the Adaptive Platform.
 cargo install adpt
 ```
 
+Or on ARM-based macs brew can be used:
+
+```sh
+brew install adaptive-ml/homebrew-tap/adpt
+```
+
 Once installed an API key must be specified for use. This can be done using the
 `ADAPTIVE_API_KEY` environment variable, or alternatively stored in your
 operating system's keyring using the below command:
