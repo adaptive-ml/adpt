@@ -1,0 +1,24 @@
+query ListJobs($cursor: CursorPageInput, $filter: ListJobsFilterInput) {
+    jobs(page: $cursor, filter: $filter) {
+        pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+        }
+        nodes {
+            id
+            createdAt
+            createdBy {
+                id
+                name
+            }
+            status
+            durationMs
+            kind
+            details {
+                args
+            }
+        }
+    }
+}

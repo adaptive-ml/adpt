@@ -54,7 +54,7 @@ enum Commands {
         compute_pool: Option<String>,
         /// The number of GPUs to run the recipe on
         #[arg(short, long)]
-        num_gpus: Option<u32>,
+        gpus: Option<u32>,
     },
     /// Upload recipe
     Publish {
@@ -76,9 +76,10 @@ enum Commands {
         #[arg(short, long)]
         follow: bool,
     },
-    SetApiKey {
-        api_key: String,
-    },
+    /// List currently running jobs
+    Jobs,
+    /// Store your API key in the OS keyring
+    SetApiKey { api_key: String },
 }
 
 fn main() -> Result<()> {
@@ -109,7 +110,7 @@ fn main() -> Result<()> {
                 paramters,
                 name,
                 compute_pool,
-                num_gpus,
+                gpus,
             } => {
                 run_recipe(
                     &client,
@@ -118,11 +119,12 @@ fn main() -> Result<()> {
                     paramters,
                     name,
                     compute_pool,
-                    num_gpus,
+                    gpus,
                 )
                 .await
             }
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
+            Commands::Jobs => list_jobs(&client, Some(usecase)).await,
         }
     })
 }
@@ -250,6 +252,19 @@ async fn run_recipe(
         .await?;
 
     println!("Recipe run successfully with ID: {}", response.id);
+
+    Ok(())
+}
+
+async fn list_jobs(client: &AdaptiveClient, usecase: Option<String>) -> Result<()> {
+    let response = client.list_jobs(usecase).await?;
+
+    println!("Jobs:");
+    response.into_iter().for_each(|job| {
+        dbg!(job);
+        // println!("ID: {}", job.id);
+        // println!("Status: {:?}", job.status);
+    });
 
     Ok(())
 }

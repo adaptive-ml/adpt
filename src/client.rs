@@ -11,8 +11,14 @@ use uuid::Uuid;
 type IdOrKey = String;
 #[allow(clippy::upper_case_acronyms)]
 type UUID = Uuid;
+//FIXME make instant
 type Timestamp = u64;
 type JsObject = Map<String, Value>;
+#[allow(clippy::upper_case_acronyms)]
+type JSON = String;
+type InputDatetime = String;
+
+const PAGE_SIZE: usize = 20;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Upload(usize);
@@ -32,6 +38,14 @@ pub struct GetCustomRecipes;
     response_derives = "Debug, Clone"
 )]
 pub struct GetJob;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.gql",
+    query_path = "src/graphql/jobs.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct ListJobs;
 
 impl Display for get_job::JobStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -201,5 +215,51 @@ impl AdaptiveClient {
 
         let response_data = self.execute_query(RunCustomRecipe, variables).await?;
         Ok(response_data.create_job)
+    }
+
+    pub async fn list_jobs(
+        &self,
+        usecase: Option<String>,
+    ) -> Result<Vec<list_jobs::ListJobsJobsNodes>> {
+        let mut jobs = Vec::new();
+        let mut page = self.list_jobs_page(usecase.clone(), None).await?;
+        jobs.extend(page.nodes.iter().cloned());
+        while page.page_info.has_next_page {
+            page = self
+                .list_jobs_page(usecase.clone(), page.page_info.end_cursor)
+                .await?;
+            jobs.extend(page.nodes.iter().cloned());
+        }
+        Ok(jobs)
+    }
+
+    async fn list_jobs_page(
+        &self,
+        usecase: Option<String>,
+        after: Option<String>,
+    ) -> Result<list_jobs::ListJobsJobs> {
+        let variables = list_jobs::Variables {
+            filter: Some(list_jobs::ListJobsFilterInput {
+                use_case: usecase,
+                kind: Some(vec![list_jobs::JobKind::CUSTOM]),
+                status: Some(vec![
+                    list_jobs::JobStatus::RUNNING,
+                    list_jobs::JobStatus::PENDING,
+                    list_jobs::JobStatus::FAILED,
+                ]),
+                timerange: None,
+                custom_recipes: None,
+                artifacts: None,
+            }),
+            cursor: Some(list_jobs::CursorPageInput {
+                first: Some(PAGE_SIZE as i64),
+                after,
+                before: None,
+                last: None,
+            }),
+        };
+
+        let response_data = self.execute_query(ListJobs, variables).await?;
+        Ok(response_data.jobs)
     }
 }
