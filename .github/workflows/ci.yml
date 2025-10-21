@@ -74,25 +74,25 @@ jobs:
             }}
 
       - name: Run cargo build
-        run: cargo build --release
+        run: cargo build
 
       - name: Upload artifacts (Linux)
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: adpt-linux
-          path: target/release/adpt
+          path: target/debug/adpt
 
       - name: Upload artifacts (Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: adpt-windows
-          path: target/release/adpt.exe
+          path: target/debug/adpt.exe
 
       - name: Upload artifacts (macOS)
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: adpt-macos
-          path: target/release/adpt
+          path: target/debug/adpt
