@@ -27,7 +27,7 @@ mod ui;
 
 #[derive(Parser)]
 #[command(name = "adpt")]
-#[command(version = "0.1.0")]
+#[command(version)]
 #[command(about = "A tool interacting with the Adaptive platform")]
 struct Cli {
     #[arg(short, long)]
