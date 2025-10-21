@@ -2,6 +2,8 @@
 name = "adpt"
 version = "0.1.0"
 edition = "2024"
+description = "A tool for interacting with the Adaptive platform"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0.100"
