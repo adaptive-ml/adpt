@@ -10,6 +10,7 @@ anyhow = "1.0.100"
 clap = { version = "4.5.47", features = ["derive"] }
 clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
 directories = "6.0.0"
+dotenvy = "0.15.7"
 envy = "0.4.2"
 graphql_client = "0.14.0"
 iocraft = "0.7.14"

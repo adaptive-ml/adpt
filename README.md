@@ -110,6 +110,10 @@ adpt job <job-id> --follow
 
 ## Configuration
 
+### Env file
+
+Envionrment variables may be specified using a `.env` file in a parent folder.
+
 ### Configuration File Locations
 
 Configuration files are stored in platform-specific locations:

@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, anyhow};
+use dotenvy::dotenv;
 use keyring::Entry;
 use serde::Deserialize;
 use std::fs;
@@ -52,6 +53,7 @@ fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> 
 }
 
 pub fn read_config() -> Result<Config> {
+    let _ = dotenv();
     let env_config = envy::from_env::<ConfigEnv>().unwrap_or_default();
 
     let project_dirs = directories::ProjectDirs::from("com", "adaptive-ml", "adpt")
