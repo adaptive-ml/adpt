@@ -4,7 +4,9 @@ A command line tool for interacting with the Adaptive Platform.
 
 ## Installation
 
-<instrucitons go here>
+```sh
+cargo install adpt
+```
 
 Once installed an API key must be specified for use. This can be done using the
 `ADAPTIVE_API_KEY` environment variable, or alternatively stored in your
