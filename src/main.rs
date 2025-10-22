@@ -81,6 +81,8 @@ enum Commands {
     Jobs,
     /// Cancel a job
     CancelJob { id: Uuid },
+    /// List models
+    Models {},
     /// Store your API key in the OS keyring
     SetApiKey { api_key: String },
 }
@@ -129,8 +131,15 @@ fn main() -> Result<()> {
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             Commands::Jobs => list_jobs(&client, Some(usecase)).await,
             Commands::CancelJob { id } => cancel_job(&client, id).await,
+            Commands::Models {} => list_models(&client, usecase).await,
         }
     })
+}
+
+async fn list_models(client: &AdaptiveClient, usecase: String) -> Result<()> {
+    let models = client.list_models(usecase).await?;
+    dbg!(models);
+    Ok(())
 }
 
 async fn cancel_job(client: &AdaptiveClient, id: Uuid) -> Result<()> {

@@ -1,0 +1,50 @@
+query ListModels($useCaseId: IdOrKey!) {
+    useCase(idOrKey: $useCaseId) {
+        modelServices(filter: { kind: [Embedding, Generation] }) {
+            id
+            key
+            name
+            attached
+            desiredOnline
+            isDefault
+            status
+            error
+            model {
+                ...model
+                __typename
+            }
+            placement {
+                computePools
+                __typename
+            }
+            toolProviders {
+                id
+                name
+                __typename
+            }
+            __typename
+        }
+        __typename
+    }
+}
+
+fragment model on Model {
+    id
+    key
+    name
+    kind
+    inStorage
+    isTraining
+    online
+    error
+    createdAt
+    backbone {
+        key
+        id
+        __typename
+    }
+    providerName
+    isExternal
+    isAdapter
+    __typename
+}

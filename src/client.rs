@@ -66,6 +66,14 @@ pub struct ListJobs;
 )]
 pub struct CancelJob;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.gql",
+    query_path = "src/graphql/models.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct ListModels;
+
 impl Display for get_job::JobStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -286,5 +294,20 @@ impl AdaptiveClient {
 
         let response_data = self.execute_query(CancelJob, variables).await?;
         Ok(response_data.cancel_job)
+    }
+
+    pub async fn list_models(
+        &self,
+        usecase: String,
+    ) -> Result<Vec<list_models::ListModelsUseCaseModelServices>> {
+        let variables = list_models::Variables {
+            use_case_id: usecase,
+        };
+
+        let response_data = self.execute_query(ListModels, variables).await?;
+        Ok(response_data
+            .use_case
+            .map(|use_case| use_case.model_services)
+            .unwrap_or(Vec::new()))
     }
 }
