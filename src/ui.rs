@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::client::get_job::JobStatusOutput;
 use crate::client::list_jobs::{self, ListJobsJobsNodes};
+use crate::client::list_models::{self, ListModelsUseCaseModelServices};
 use crate::client::{AdaptiveClient, get_job};
 use crate::client::{
     get_custom_recipes::GetCustomRecipesCustomRecipes,
@@ -87,6 +88,82 @@ fn JobStatusIcon(props: &JobStatusIconProps) -> impl Into<AnyElement<'static>> {
             )
         }
         .into_any(),
+    }
+}
+
+#[derive(Default, Props)]
+pub struct ModelsListProps {
+    pub models: Vec<ListModelsUseCaseModelServices>,
+}
+
+fn model_status_to_string(status: list_models::ModelserviceStatus) -> String {
+    match status {
+        list_models::ModelserviceStatus::PENDING => "Pending".to_string(),
+        list_models::ModelserviceStatus::ONLINE => "Online".to_string(),
+        list_models::ModelserviceStatus::OFFLINE => "Offline".to_string(),
+        list_models::ModelserviceStatus::DETACHED => "Detached".to_string(),
+        list_models::ModelserviceStatus::TURNED_OFF => "Turned Off".to_string(),
+        list_models::ModelserviceStatus::ERROR => "Error".to_string(),
+        list_models::ModelserviceStatus::Other(other) => other.to_owned(),
+    }
+}
+
+#[component]
+pub fn ModelsList(props: &ModelsListProps) -> impl Into<AnyElement<'static>> {
+    element! {
+        View(flex_direction: FlexDirection::Column,
+             border_style: BorderStyle::Round,
+             border_color: Color::Cyan,
+        ) {
+
+            View(border_style: BorderStyle::Single, border_edges: Edges::Bottom, border_color: Color::Grey, gap: 2) {
+                View(padding_left: 1) {
+                    Text(content: "Status", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+
+                View(justify_content: JustifyContent::Start, width: 36) {
+                    Text(content: "Id", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+
+                View(width: 25) {
+                    Text(content: "Name", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+
+                View(padding_right: 1) {
+                    Text(content: "Key", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+            }
+            #({
+                if props.models.is_empty() {
+                    vec![element! {
+                        View(padding: 2, justify_content: JustifyContent::Center) {
+                            Text(content: "No models found", color: Color::Grey)
+                        }
+                    }]
+                } else {
+                    props.models.clone().into_iter().enumerate().map(|(i, model)| { element! {
+                        View(background_color: if i % 2 == 0 { None } else { Some(Color::Grey) }, gap: 2) {
+                            View() {
+                                Text(content: model_status_to_string(model.status))
+                            }
+
+                            View() {
+                                Text(content: model.id)
+                            }
+
+                            View(width: 25) {
+                                Text(content: model.name)
+                            }
+
+                            View(padding_right: 1) {
+                                Text(content: model.key)
+                            }
+                        }
+                    }
+                    }).collect()
+                }
+            })
+        }
     }
 }
 

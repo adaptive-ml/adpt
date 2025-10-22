@@ -19,7 +19,7 @@ use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 use zip_extensions::write::ZipWriterExtensions;
 
-use crate::ui::{JobsList, RecipeList};
+use crate::ui::{JobsList, ModelsList, RecipeList};
 
 mod client;
 mod config;
@@ -138,7 +138,8 @@ fn main() -> Result<()> {
 
 async fn list_models(client: &AdaptiveClient, usecase: String) -> Result<()> {
     let models = client.list_models(usecase).await?;
-    dbg!(models);
+    // dbg!(models);
+    element!(ModelsList(models: models)).print();
     Ok(())
 }
 
