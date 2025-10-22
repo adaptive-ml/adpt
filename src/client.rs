@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::Path};
+use std::{fmt::Display, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result, anyhow, bail};
 use graphql_client::{GraphQLQuery, Response};
@@ -8,13 +8,26 @@ use serde_json::{Map, Value};
 use url::Url;
 use uuid::Uuid;
 
+use crate::serde_utils;
+
 type IdOrKey = String;
 #[allow(clippy::upper_case_acronyms)]
 type UUID = Uuid;
-//FIXME make instant
-type Timestamp = u64;
 type JsObject = Map<String, Value>;
 type InputDatetime = String;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Timestamp(pub SystemTime);
+
+impl<'de> serde::Deserialize<'de> for Timestamp {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let system_time = serde_utils::deserialize_timestamp_millis(deserializer)?;
+        Ok(Timestamp(system_time))
+    }
+}
 
 const PAGE_SIZE: usize = 20;
 

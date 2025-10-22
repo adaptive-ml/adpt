@@ -23,6 +23,7 @@ use crate::ui::{JobsList, RecipeList};
 
 mod client;
 mod config;
+mod serde_utils;
 mod ui;
 
 #[derive(Parser)]
