@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
