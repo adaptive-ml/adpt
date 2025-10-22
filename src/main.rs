@@ -19,7 +19,7 @@ use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 use zip_extensions::write::ZipWriterExtensions;
 
-use crate::ui::RecipeList;
+use crate::ui::{JobsList, RecipeList};
 
 mod client;
 mod config;
@@ -259,12 +259,7 @@ async fn run_recipe(
 async fn list_jobs(client: &AdaptiveClient, usecase: Option<String>) -> Result<()> {
     let response = client.list_jobs(usecase).await?;
 
-    println!("Jobs:");
-    response.into_iter().for_each(|job| {
-        dbg!(job);
-        // println!("ID: {}", job.id);
-        // println!("Status: {:?}", job.status);
-    });
+    element!(JobsList(jobs: response)).print();
 
     Ok(())
 }

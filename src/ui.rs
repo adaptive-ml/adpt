@@ -1,9 +1,12 @@
 use std::sync::Arc;
+use std::time::Duration;
 
+use fancy_duration::AsFancyDuration;
 use iocraft::prelude::*;
 use uuid::Uuid;
 
 use crate::client::get_job::JobStatusOutput;
+use crate::client::list_jobs::{self, ListJobsJobsNodes};
 use crate::client::{AdaptiveClient, get_job};
 use crate::client::{
     get_custom_recipes::GetCustomRecipesCustomRecipes,
@@ -24,6 +27,116 @@ pub fn RecipeList(props: &RecipeListProps) -> impl Into<AnyElement<'static>> {
                         Text(content: recipe.name.clone())
                 }
             }))
+        }
+    }
+}
+
+#[derive(Default, Props)]
+pub struct JobsListProps {
+    pub jobs: Vec<ListJobsJobsNodes>,
+}
+
+#[derive(Default, Props)]
+pub struct JobStatusIconProps {
+    pub status: Option<list_jobs::JobStatus>,
+}
+
+#[component]
+fn JobStatusIcon(props: &JobStatusIconProps) -> impl Into<AnyElement<'static>> {
+    let status = props.status.as_ref().unwrap();
+    match status {
+        list_jobs::JobStatus::PENDING => element! {
+            Text (
+                color: Color::Yellow,
+                content: "⏳"
+            )
+        }
+        .into_any(),
+        list_jobs::JobStatus::RUNNING => element! {
+            Text (
+                color: Color::Yellow,
+                content: "▶️"
+            )
+        }
+        .into_any(),
+        list_jobs::JobStatus::COMPLETED => element! {
+            Text (
+                color: Color::Green,
+                content: "✅"
+            )
+        }
+        .into_any(),
+        list_jobs::JobStatus::FAILED => element! {
+            Text (
+                color: Color::Red,
+                content: "❌"
+            )
+        }
+        .into_any(),
+        list_jobs::JobStatus::CANCELED => element! {
+            Text (
+                color: Color::Yellow,
+                content: "🚫"
+            )
+        }
+        .into_any(),
+        list_jobs::JobStatus::Other(_) => element! {
+            Text (
+                color: Color::Yellow,
+                content: "❓"
+            )
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn JobsList(props: &JobsListProps) -> impl Into<AnyElement<'static>> {
+    element! {
+        View(flex_direction: FlexDirection::Column,
+             border_style: BorderStyle::Round,
+             border_color: Color::Cyan,
+        ) {
+
+            View(border_style: BorderStyle::Single, border_edges: Edges::Bottom, border_color: Color::Grey, gap: 2) {
+                View(padding_left: 1) {
+                    Text(content: "Status", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+
+                View(justify_content: JustifyContent::Start, width: 36) {
+                    Text(content: "Id", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+
+                View() {
+                    Text(content: "Duration", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+
+                View(padding_right: 1) {
+                    Text(content: "User", weight: Weight::Bold, decoration: TextDecoration::Underline)
+                }
+            }
+            #({let mut sorted = props.jobs.clone();
+               sorted.sort_by(|job1, job2| job1.created_at.cmp(&job2.created_at).reverse());
+               sorted.into_iter().enumerate().map(|(i, job)| { element! {
+                View(background_color: if i % 2 == 0 { None } else { Some(Color::Grey) }, gap: 2) {
+                    View(width: 6, justify_content: JustifyContent::Center, margin_left: 1) {
+                        JobStatusIcon(status: job.status.clone())
+                    }
+
+                    View() {
+                        Text(content: job.id)
+                    }
+
+                    View(width: 8) {
+                        Text(content: Duration::from_millis(job.duration_ms.unwrap_or_default() as u64).fancy_duration().truncate(2).to_string())
+                    }
+
+                    View(padding_right: 1) {
+                        Text(content: job.created_by.as_ref().map(|user| format!("{} <{}>", user.name, user.email)).unwrap_or("Unknown".to_string()))
+                    }
+                }
+            }
+            })})
         }
     }
 }

@@ -14,8 +14,6 @@ type UUID = Uuid;
 //FIXME make instant
 type Timestamp = u64;
 type JsObject = Map<String, Value>;
-#[allow(clippy::upper_case_acronyms)]
-type JSON = String;
 type InputDatetime = String;
 
 const PAGE_SIZE: usize = 20;
@@ -245,7 +243,6 @@ impl AdaptiveClient {
                 status: Some(vec![
                     list_jobs::JobStatus::RUNNING,
                     list_jobs::JobStatus::PENDING,
-                    list_jobs::JobStatus::FAILED,
                 ]),
                 timerange: None,
                 custom_recipes: None,

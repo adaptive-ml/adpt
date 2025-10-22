@@ -2,7 +2,6 @@ query ListJobs($cursor: CursorPageInput, $filter: ListJobsFilterInput) {
     jobs(page: $cursor, filter: $filter) {
         pageInfo {
             hasNextPage
-            hasPreviousPage
             startCursor
             endCursor
         }
@@ -10,15 +9,11 @@ query ListJobs($cursor: CursorPageInput, $filter: ListJobsFilterInput) {
             id
             createdAt
             createdBy {
-                id
                 name
+                email
             }
             status
             durationMs
-            kind
-            details {
-                args
-            }
         }
     }
 }
