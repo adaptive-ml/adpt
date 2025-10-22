@@ -135,16 +135,16 @@ Configuration files are stored in platform-specific locations:
 The configuration file uses TOML format and supports the following options:
 
 ```toml
-# Default use case for operations (optional)
+# Default use case for operations
 default_use_case = "my-usecase"
 
-# Base URL for the Adaptive platform (required)
+# Base URL for the Adaptive platform
 adaptive_base_url = "https://your-adaptive-instance.com"
 ```
 
 ### API Key Storage
 
-The API key can be provided in three ways (in order of priority):
+The API key can be provided in two ways (in order of priority):
 
 1. **Environment Variable**: Set `ADAPTIVE_API_KEY` environment variable
 2. **System Keyring**: Store securely using `adpt set-api-key <your-key>`
