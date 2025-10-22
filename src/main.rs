@@ -51,7 +51,7 @@ enum Commands {
         #[arg(short, long)]
         name: Option<String>,
         /// The compute pool to run the recipe on
-        #[arg(short, long)]
+        #[arg(short, long, add = ArgValueCompleter::new(pool_completer))]
         compute_pool: Option<String>,
         /// The number of GPUs to run the recipe on
         #[arg(short, long)]
@@ -272,6 +272,28 @@ fn usecase_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     usecases.into_iter().for_each(|usecase| {
         if usecase.key.starts_with(current) {
             completions.push(CompletionCandidate::new(usecase.key));
+        }
+    });
+
+    completions
+}
+
+fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let Some(current) = current.to_str() else {
+        return completions;
+    };
+
+    let config = config::read_config().expect("Failed to read config");
+
+    let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+
+    let handle = Handle::current();
+    let pools = handle.block_on(client.list_pools()).unwrap();
+
+    pools.into_iter().for_each(|pool| {
+        if pool.key.starts_with(current) {
+            completions.push(CompletionCandidate::new(pool.key));
         }
     });
 

@@ -111,6 +111,14 @@ pub struct RunCustomRecipe;
 )]
 pub struct ListUseCases;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.gql",
+    query_path = "src/graphql/pools.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct ListComputePools;
+
 pub struct AdaptiveClient {
     client: Client,
     base_url: Url,
@@ -324,5 +332,14 @@ impl AdaptiveClient {
 
         let response_data = self.execute_query(ListUseCases, variables).await?;
         Ok(response_data.use_cases)
+    }
+
+    pub async fn list_pools(
+        &self,
+    ) -> Result<Vec<list_compute_pools::ListComputePoolsComputePools>> {
+        let variables = list_compute_pools::Variables {};
+
+        let response_data = self.execute_query(ListComputePools, variables).await?;
+        Ok(response_data.compute_pools)
     }
 }
