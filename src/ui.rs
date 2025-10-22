@@ -115,28 +115,38 @@ pub fn JobsList(props: &JobsListProps) -> impl Into<AnyElement<'static>> {
                     Text(content: "User", weight: Weight::Bold, decoration: TextDecoration::Underline)
                 }
             }
-            #({let mut sorted = props.jobs.clone();
-               sorted.sort_by(|job1, job2| job1.created_at.cmp(&job2.created_at).reverse());
-               sorted.into_iter().enumerate().map(|(i, job)| { element! {
-                View(background_color: if i % 2 == 0 { None } else { Some(Color::Grey) }, gap: 2) {
-                    View(width: 6, justify_content: JustifyContent::Center, margin_left: 1) {
-                        JobStatusIcon(status: job.status.clone())
-                    }
+            #({
+                if props.jobs.is_empty() {
+                    vec![element! {
+                        View(padding: 2, justify_content: JustifyContent::Center) {
+                            Text(content: "No jobs found", color: Color::Grey)
+                        }
+                    }]
+                } else {
+                    let mut sorted = props.jobs.clone();
+                    sorted.sort_by(|job1, job2| job1.created_at.cmp(&job2.created_at).reverse());
+                    sorted.into_iter().enumerate().map(|(i, job)| { element! {
+                        View(background_color: if i % 2 == 0 { None } else { Some(Color::Grey) }, gap: 2) {
+                            View(width: 6, justify_content: JustifyContent::Center, margin_left: 1) {
+                                JobStatusIcon(status: job.status.clone())
+                            }
 
-                    View() {
-                        Text(content: job.id)
-                    }
+                            View() {
+                                Text(content: job.id)
+                            }
 
-                    View(width: 8) {
-                        Text(content: Duration::from_millis(job.duration_ms.unwrap_or_default() as u64).fancy_duration().truncate(2).to_string())
-                    }
+                            View(width: 8) {
+                                Text(content: Duration::from_millis(job.duration_ms.unwrap_or_default() as u64).fancy_duration().truncate(2).to_string())
+                            }
 
-                    View(padding_right: 1) {
-                        Text(content: job.created_by.as_ref().map(|user| format!("{} <{}>", user.name, user.email)).unwrap_or("Unknown".to_string()))
+                            View(padding_right: 1) {
+                                Text(content: job.created_by.as_ref().map(|user| format!("{} <{}>", user.name, user.email)).unwrap_or("Unknown".to_string()))
+                            }
+                        }
                     }
+                    }).collect()
                 }
-            }
-            })})
+            })
         }
     }
 }
