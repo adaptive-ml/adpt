@@ -39,7 +39,7 @@ struct Cli {
 enum Commands {
     /// Run recipe
     Run {
-        #[arg(short, long)]
+        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
         /// Recipe ID or key
         #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
@@ -59,7 +59,7 @@ enum Commands {
     },
     /// Upload recipe
     Publish {
-        #[arg(short, long)]
+        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
         #[arg(value_hint = ValueHint::AnyPath)]
         recipe: PathBuf,
@@ -72,7 +72,7 @@ enum Commands {
     },
     /// List recipes
     Recipes {
-        #[arg(short, long)]
+        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
     },
     /// Inspect job
@@ -88,7 +88,7 @@ enum Commands {
     CancelJob { id: Uuid },
     /// List models
     Models {
-        #[arg(short, long)]
+        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
     },
     /// Store your API key in the OS keyring
@@ -151,7 +151,6 @@ fn main() -> Result<()> {
 
 async fn list_models(client: &AdaptiveClient, usecase: String) -> Result<()> {
     let models = client.list_models(usecase).await?;
-    // dbg!(models);
     element!(ModelsList(models: models)).print();
     Ok(())
 }
@@ -251,6 +250,28 @@ fn recipe_key_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
             && key.starts_with(current)
         {
             completions.push(CompletionCandidate::new(key));
+        }
+    });
+
+    completions
+}
+
+fn usecase_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let Some(current) = current.to_str() else {
+        return completions;
+    };
+
+    let config = config::read_config().expect("Failed to read config");
+
+    let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+
+    let handle = Handle::current();
+    let usecases = handle.block_on(client.list_usecases()).unwrap();
+
+    usecases.into_iter().for_each(|usecase| {
+        if usecase.key.starts_with(current) {
+            completions.push(CompletionCandidate::new(usecase.key));
         }
     });
 

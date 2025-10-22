@@ -103,6 +103,14 @@ pub struct PublishCustomRecipe;
 )]
 pub struct RunCustomRecipe;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.gql",
+    query_path = "src/graphql/usecases.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct ListUseCases;
+
 pub struct AdaptiveClient {
     client: Client,
     base_url: Url,
@@ -309,5 +317,12 @@ impl AdaptiveClient {
             .use_case
             .map(|use_case| use_case.model_services)
             .unwrap_or(Vec::new()))
+    }
+
+    pub async fn list_usecases(&self) -> Result<Vec<list_use_cases::ListUseCasesUseCases>> {
+        let variables = list_use_cases::Variables {};
+
+        let response_data = self.execute_query(ListUseCases, variables).await?;
+        Ok(response_data.use_cases)
     }
 }
