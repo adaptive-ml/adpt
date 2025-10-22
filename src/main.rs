@@ -78,6 +78,8 @@ enum Commands {
     },
     /// List currently running jobs
     Jobs,
+    /// Cancel a job
+    CancelJob { id: Uuid },
     /// Store your API key in the OS keyring
     SetApiKey { api_key: String },
 }
@@ -125,8 +127,15 @@ fn main() -> Result<()> {
             }
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             Commands::Jobs => list_jobs(&client, Some(usecase)).await,
+            Commands::CancelJob { id } => cancel_job(&client, id).await,
         }
     })
+}
+
+async fn cancel_job(client: &AdaptiveClient, id: Uuid) -> Result<()> {
+    let cancelled = client.cancel_job(id).await?;
+    println!("Job {} cancelled successfully", cancelled.id);
+    Ok(())
 }
 
 async fn get_job(client: Arc<AdaptiveClient>, job_id: Uuid, follow: bool) -> Result<()> {

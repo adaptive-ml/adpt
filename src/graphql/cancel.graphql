@@ -1,0 +1,8 @@
+mutation CancelJob($jobId: UUID!) {
+    cancelJob(id: $jobId) {
+        id
+        status
+        endedAt
+        durationMs
+    }
+}

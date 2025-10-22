@@ -73,19 +73,6 @@ type ActivityOutput {
 	trend: Float
 }
 
-type AdaptBuiltinRecipeConfigOutput {
-	outputName: String!
-	sampleConfig: SampleConfigOutput!
-	trainingConfig: TrainingConfigOutput!
-}
-
-type AdaptCustomRecipeConfigOutput {
-	outputName: String!
-	args: JsObject!
-}
-
-union AdaptRequestConfigOutput = AdaptBuiltinRecipeConfigOutput | AdaptCustomRecipeConfigOutput
-
 input AddExternalModelInput {
 	name: String!
 	provider: ExternalModelProviderName!
@@ -122,7 +109,7 @@ input ApiKeyCreate {
 	user: IdOrKey!
 }
 
-union ArtifactByproducts = EvaluationByproducts
+union ArtifactByproducts = EvaluationByproducts | DatasetByproducts
 
 input ArtifactFilter {
 	kinds: [JobArtifactKind!]
@@ -157,17 +144,29 @@ input AzureProviderDataInput {
 	endpoint: String!
 }
 
-type BaseTrainingParamsOutput {
-	learningRate: Float!
-	numEpochs: Int!
-	batchSize: Int!
-	numValidations: Int!
-}
-
 type BatchInferenceJobStageOutput {
 	totalNumSamples: Int
 	processedNumSamples: Int
 	monitoringLink: String
+}
+
+enum BillingCycle {
+	YEARLY
+}
+
+"""
+Report token usage on this billing cycle: from the start of the period until now
+Also indicate a projection usage at the end of the period
+"""
+type BillingUsage {
+	now: Timestamp!
+	start: Timestamp!
+	end: Timestamp!
+	usage: UsageStats!
+	"""
+	projection of token usage at the end of the billing cycle based on the current usage
+	"""
+	projection: UsageStats!
 }
 
 type ChatMessage {
@@ -199,7 +198,10 @@ type Completion {
 	labels(withProtected: Boolean! = false): [CompletionLabel!]!
 	createdAt: Timestamp!
 	siblingsCount(filter: ListCompletionsFilterInput!): Int!
+	hasUserMetadata: Boolean!
+	userMetadata: JSON
 	metadata: CompletionMetadata!
+	canEdit: Boolean!
 }
 
 input CompletionComparisonFilterInput {
@@ -246,18 +248,6 @@ input CompletionFeedbackFilterInput {
 	lte: Float
 	reasons: [String!]
 	user: UUID
-}
-
-type CompletionFeedbackFilterOutput {
-	metric: String!
-	gt: Float
-	gte: Float
-	eq: Float
-	neq: Float
-	lt: Float
-	lte: Float
-	reasons: [String!]
-	user: String
 }
 
 enum CompletionGroupBy {
@@ -326,11 +316,6 @@ type CompletionLabel {
 	value: String!
 }
 
-type CompletionLabelFilterOutput {
-	key: String!
-	value: [String!]
-}
-
 input CompletionLabelValue {
 	key: String!
 	value: String!
@@ -351,10 +336,13 @@ enum CompletionSource {
 	EVALUATION
 }
 
-enum CompletionSourceOutput {
-	LIVE
-	OFFLINE
-	AUTOMATION
+input CompletionsByFilters {
+	filters: ListCompletionsFilterInput!
+	exclude: [UUID!]!
+}
+
+input CompletionsById {
+	include: [UUID!]!
 }
 
 type ComputePool {
@@ -362,14 +350,26 @@ type ComputePool {
 	key: String!
 	name: String!
 	createdAt: Timestamp!
-	allPartitions: [Partition!]!
-	partitions: [Partition!]!
+	allHarmonyGroups: [HarmonyGroup!]!
+	harmonyGroups: [HarmonyGroup!]!
 	capabilities: [ComputePoolCapability!]!
 }
 
 enum ComputePoolCapability {
 	INFERENCE
 	JOB
+}
+
+type Contract {
+	quota: Float!
+	startDate: Timestamp!
+	endDate: Timestamp!
+	cycle: BillingCycle!
+	"""
+	Get token usage on Adaptive models for the current billing cycle
+	returns an error if 'now' is before the start date of the contract
+	"""
+	usage(now: InputDatetime): BillingUsage!
 }
 
 input CreateRecipeInput {
@@ -406,6 +406,7 @@ type CustomRecipe {
 	key: String
 	name: String!
 	editable: Boolean!
+	hidden: Boolean!
 	builtin: Boolean!
 	global: Boolean!
 	createdAt: Timestamp!
@@ -441,6 +442,16 @@ type Dataset {
 	deleted: Boolean!
 }
 
+type DatasetByproducts {
+	dataset: Dataset!
+}
+
+input DatasetCompletionQuery @oneOf {
+	fromSelection: CompletionsById
+	fromFilters: CompletionsByFilters
+	fromGroups: FromGroupsQuery
+}
+
 input DatasetCreate {
 	useCase: IdOrKey!
 	name: String!
@@ -448,17 +459,23 @@ input DatasetCreate {
 	source: DatasetSource
 }
 
-input DatasetGenerate {
+input DatasetCreateFromFilters {
 	useCase: IdOrKey!
 	name: String!
 	key: String
-	computePool: IdOrKey
-	config: DatasetGenerationConfig!
-	numGpus: Int! = 1
+	completionQuery: DatasetCompletionQuery!
+	sampleConfig: SampleConfig
+	feedbackFilters: FeedbackFilterInput
+	kind: DatasetKind!
+	metrics: [IdOrKey!]
 }
 
-input DatasetGenerationConfig @oneOf {
-	rag: RagdataGenerationConfig
+input DatasetCreateFromMultipartUpload {
+	useCase: IdOrKey!
+	name: String!
+	key: String
+	source: DatasetSource
+	uploadSessionId: String!
 }
 
 enum DatasetKind {
@@ -478,6 +495,7 @@ enum DatasetSource {
 	UPLOADED
 	GENERATED
 	GENERATING
+	FILTERED
 }
 
 type DatasetValidationOutput {
@@ -486,6 +504,7 @@ type DatasetValidationOutput {
 }
 
 enum DateBucketUnit {
+	HOUR
 	DAY
 	WEEK
 	MONTH
@@ -516,10 +535,6 @@ type DirectFeedback {
 	createdAt: Timestamp!
 }
 
-type DpotrainingParamsOutput {
-	klDivCoeff: Float!
-}
-
 type Emoji {
 	native: String!
 }
@@ -534,61 +549,9 @@ type EvalJobStageOutput {
 	monitoringLink: String
 }
 
-type EvaluationAnswerRelevancyRecipe {
-	metric: Metric
-}
-
 type EvaluationByproducts {
 	evalResults: [EvaluationResult!]!
 }
-
-type EvaluationContextRelevancyRecipe {
-	metric: Metric
-}
-
-type EvaluationCustomRecipe {
-	guidelines: [Guideline!]!
-	criteria: [String!]
-	metric: Metric
-}
-
-type EvaluationFaithfulnessRecipe {
-	metric: Metric
-}
-
-type EvaluationJob {
-	id: UUID!
-	name: String!
-	createdAt: Timestamp!
-	status: EvaluationJobStatus!
-	startedAt: Timestamp
-	endedAt: Timestamp
-	durationMs: Int
-	modelServices: [ModelService!]!
-	graders: [Grader!]!
-	judgeModels: [Model!]!
-	judges: [Judge!]!
-	useCase: UseCase
-	stages: [JobStageOutput!]!
-	reports: [EvaluationResult!]!
-	createdBy: User
-	dataset: Dataset
-	sampleConfig: SampleConfigOutput
-	metrics: [Metric!]!
-	evalType: EvaluationType!
-	recipe: EvaluationRecipe
-	error: String
-}
-
-enum EvaluationJobStatus {
-	PENDING
-	RUNNING
-	COMPLETED
-	FAILED
-	CANCELED
-}
-
-union EvaluationRecipe = EvaluationCustomRecipe | EvaluationFaithfulnessRecipe | EvaluationContextRelevancyRecipe | EvaluationAnswerRelevancyRecipe
 
 type EvaluationResult {
 	modelService: ModelService!
@@ -606,13 +569,6 @@ type EvaluationResult {
 	feedbackCount: Int!
 	judge: Judge
 	grader: Grader
-}
-
-enum EvaluationType {
-	AI_JUDGE
-	REMOTE_ENV
-	GRADERS
-	MULTI_AI_JUDGES
 }
 
 enum ExternalModelProviderName {
@@ -639,14 +595,32 @@ enum FeedbackType {
 	COMPARISON
 }
 
-enum FeedbackTypeOutput {
-	DIRECT
-	PREFERENCE
-}
-
 input FeedbackUpdateInput {
 	value: JSON
 	details: String
+}
+
+input FromGroupsQuery {
+	filters: ListCompletionsFilterInput!
+	grouping: CompletionGroupBy!
+	groups: [GroupSelectionQuery!]!
+}
+
+type GlobalUsage {
+	total: UsageStats!
+	adaptiveModels: UsageStats!
+	externalModels: UsageStats!
+	byModel: [UsageStatsByModel!]!
+	signature: String!
+}
+
+input GlobalUsageFilterInput {
+	"""
+	use none to get "all time" data
+	"""
+	timerange: TimeRange
+	interval: DateBucketUnit!
+	timezone: String
 }
 
 input GoogleProviderDataInput {
@@ -706,19 +680,34 @@ input GraderUpdateInput {
 	graderConfig: GraderConfigInput
 }
 
-type GrpotrainingParamsOutput {
-	klDivCoeff: Float!
-	steps: Int
+input GroupSelection @oneOf {
+	exclude: [UUID!]
+	selectOnly: [UUID!]
 }
 
-type Guideline {
-	name: String!
-	description: String!
+input GroupSelectionQuery {
+	groupId: String!
+	selection: GroupSelection!
 }
 
-type GuidelinesTrainingParamsOutput {
-	judgeModel: String!
-	judgeModelPrompt: [Guideline!]!
+type HarmonyGroup {
+	id: UUID!
+	key: String!
+	computePool: ComputePool
+	status: HarmonyStatus!
+	url: String!
+	worldSize: Int!
+	gpuTotal: Int
+	gpuAllocated: Int
+	gpuAllocations: [GpuAllocation!]
+	gpuTypes: String!
+	createdAt: Timestamp!
+	onlineModels: [Model!]!
+}
+
+enum HarmonyStatus {
+	ONLINE
+	OFFLINE
 }
 
 """
@@ -791,6 +780,7 @@ input JobArtifactFilter {
 enum JobArtifactKind {
 	EVALUATION
 	CUSTOM
+	DATASET
 }
 
 type JobConnection {
@@ -899,11 +889,15 @@ input JudgeConfigInput {
 	model: IdOrKey!
 	criteria: String!
 	examples: [JudgeExampleInput!]!
+	systemTemplate: String!
+	userTemplate: String!
 }
 
 type JudgeConfigOutput {
 	criteria: String!
 	examples: [JudgeExample!]!
+	systemTemplate: String!
+	userTemplate: String!
 	model: Model!
 }
 
@@ -934,10 +928,6 @@ input JudgeExampleInput {
 input JudgeExampleInputTurnEntry {
 	role: String!
 	content: String!
-}
-
-type JudgeTrainingParamsOutput {
-	judges: [Judge!]!
 }
 
 input JudgeUpdate {
@@ -993,20 +983,6 @@ input ListCompletionsFilterInput {
 	source: [CompletionSource!]
 }
 
-type ListCompletionsFilterOutput {
-	useCase: String!
-	models: [String!]
-	timerange: TimeRangeOutput
-	sessionId: UUID
-	userId: UUID
-	feedbacks: [CompletionFeedbackFilterOutput!]
-	labels: [CompletionLabelFilterOutput!]
-	promptHash: String
-	completionId: UUID
-	tags: [String!]
-	source: [CompletionSourceOutput!]
-}
-
 input ListJobsFilterInput {
 	useCase: IdOrKey
 	kind: [JobKind!]
@@ -1028,6 +1004,7 @@ type Metric {
 	kind: MetricKind!
 	description: String!
 	scoringType: MetricScoringType!
+	unit: String
 	"""
 	Return the list of UseCase which use this metric
 	"""
@@ -1053,6 +1030,7 @@ input MetricCreate {
 	kind: MetricKind!
 	scoringType: MetricScoringType! = HIGHER_IS_BETTER
 	description: String
+	unit: String
 }
 
 input MetricGetOrCreate @oneOf {
@@ -1075,13 +1053,6 @@ enum MetricScoringType {
 	LOWER_IS_BETTER
 }
 
-union MetricTrainingParamsMetadataOutput = ScalarMetricConfigOutput
-
-type MetricTrainingParamsOutput {
-	metricKey: String!
-	metricMetadata: MetricTrainingParamsMetadataOutput
-}
-
 input MetricTrendInput {
 	timerange: TimeRange
 	aggregation: MetricAggregation! = AVERAGE
@@ -1100,6 +1071,7 @@ type MetricWithContext {
 	scoringType: MetricScoringType!
 	description: String!
 	createdAt: DateTime!
+	unit: String
 	feedbackCount(timerange: TimeRange): Int!
 	comparisonCount(timerange: TimeRange): Int!
 	trend(input: MetricTrendInput! = {timerange: null, aggregation: AVERAGE}): TrendResult
@@ -1135,7 +1107,6 @@ type Model {
 	indicates if a training is pending or running for this model
 	"""
 	isTraining: Boolean!
-	trainingJob: TrainingJob
 	kind: ModelKindFilter!
 	size: String
 	computeConfig: ModelComputeConfigOutput
@@ -1234,11 +1205,13 @@ enum ModelserviceStatus {
 type MutationRoot {
 	createAbCampaign(input: AbcampaignCreate!): Abcampaign!
 	cancelAbCampaign(input: IdOrKey!): String!
+	resizeInferencePartition(input: ResizePartitionInput!): String!
 	createCustomRecipe(useCase: IdOrKey!, input: CreateRecipeInput!, file: Upload!): CustomRecipe!
 	updateCustomRecipe(useCase: IdOrKey!, id: IdOrKey!, input: UpdateRecipeInput!, file: Upload): CustomRecipe!
 	deleteCustomRecipe(useCase: IdOrKey!, id: IdOrKey!): Boolean!
+	createDatasetFromMultipartUpload(input: DatasetCreateFromMultipartUpload!): Dataset!
 	createDataset(input: DatasetCreate!, file: Upload!): Dataset!
-	generateDataset(input: DatasetGenerate!, file: Upload!): Dataset!
+	createDatasetFromFilters(input: DatasetCreateFromFilters!): Dataset!
 	deleteDataset(idOrKey: IdOrKey!, useCase: IdOrKey!): Boolean!
 	updateCompletion(input: UpdateCompletion!): Completion!
 	createSystemPromptTemplate(input: SystemPromptTemplateCreate!): SystemPromptTemplate!
@@ -1261,7 +1234,7 @@ type MutationRoot {
 	terminateModel(idOrKey: IdOrKey!, force: Boolean! = false): String!
 	addExternalModel(input: AddExternalModelInput!): Model!
 	addModel(input: AddModelInput!): Model!
-	importHfModel(input: AddHFModelInput!): String!
+	importHfModel(input: AddHFModelInput!): Job!
 	updateModelComputeConfig(idOrKey: IdOrKey!, input: ModelComputeConfigInput!): Model!
 	addRemoteEnv(input: RemoteEnvCreate!): RemoteEnv!
 	removeRemoteEnv(idOrKey: IdOrKey!): String!
@@ -1347,31 +1320,6 @@ type PageInfo {
 	endCursor: String
 }
 
-type Partition {
-	id: UUID!
-	key: String!
-	computePool: ComputePool
-	status: PartitionStatus!
-	url: String!
-	worldSize: Int!
-	gpuTotal: Int
-	gpuAllocated: Int
-	gpuAllocations: [GpuAllocation!]
-	gpuTypes: String!
-	createdAt: Timestamp!
-	onlineModels: [Model!]!
-}
-
-enum PartitionStatus {
-	ONLINE
-	OFFLINE
-}
-
-type PpotrainingParamsOutput {
-	klDivCoeff: Float!
-	steps: Int
-}
-
 type PrebuiltConfigDefinition {
 	key: PrebuiltCriteriaKey!
 	name: String!
@@ -1429,16 +1377,20 @@ enum ProviderName {
 type QueryRoot {
 	abCampaigns(filter: AbCampaignFilter! = {active: null, status: null, useCase: null}): [Abcampaign!]!
 	abCampaign(idOrKey: IdOrKey!): Abcampaign
+	contract: Contract
 	customRecipes(useCase: IdOrKey!, filter: CustomRecipeFilterInput! = {labels: null}): [CustomRecipe!]!
-	customRecipe(idOrKey: IdOrKey!, useCase: IdOrKey!): CustomRecipe!
+	customRecipe(idOrKey: IdOrKey!, useCase: IdOrKey!): CustomRecipe
 	datasets(useCase: IdOrKey!): [Dataset!]!
 	dataset(idOrKey: IdOrKey!, useCase: IdOrKey!): Dataset
+	previewDatasetFromFilters(input: DatasetCreateFromFilters!): String!
 	completions(filter: ListCompletionsFilterInput!, page: CursorPageInput!, order: [OrderPair!]! = [{field: "id", order: DESC}]): CompletionConnection!
 	completionsGrouped(filter: ListCompletionsFilterInput!, feedbackFilter: FeedbackFilterInput! = {labels: null}, groupBy: CompletionGroupBy!, page: CursorPageInput!, order: [OrderPair!]! = [{field: "group", order: ASC}]): CompletionGroupDataConnection!
 	completion(useCase: IdOrKey!, id: UUID!): Completion
 	completionDownloadUrl(filter: ListCompletionsFilterInput!): String!
+	completionAsDatasetDownloadUrl(filter: ListCompletionsFilterInput!): String!
 	modelUsage(filter: UsageFilterInput!): [UsageAggregateItem!]!
 	modelUsageByUseCase(filter: UsagePerUseCaseFilterInput!): [UsageAggregatePerUseCaseItem!]!
+	globalUsage(filter: GlobalUsageFilterInput!): GlobalUsage!
 	systemPromptTemplates: [SystemPromptTemplate!]!
 	jobs(page: CursorPageInput!, filter: ListJobsFilterInput! = {useCase: null, kind: null, status: null, timerange: null, customRecipes: null, artifacts: null}, order: [OrderPair!]! = [{field: "id", order: DESC}]): JobConnection!
 	job(id: UUID!): Job
@@ -1449,8 +1401,8 @@ type QueryRoot {
 	"""
 	models(filter: ModelFilter! = {inStorage: null, available: null, trainable: null, kind: [Generation], viewAll: false, online: null}): [Model!]!
 	model(idOrKey: IdOrKey!): Model
-	allPartitions: [Partition!]!
-	partitions: [Partition!]!
+	allHarmonyGroups: [HarmonyGroup!]!
+	harmonyGroups: [HarmonyGroup!]!
 	computePools: [ComputePool!]!
 	remoteEnvs: [RemoteEnv!]!
 	useCases(filter: UseCaseFilter! = {isArchived: false}): [UseCase!]!
@@ -1476,12 +1428,6 @@ type QueryRoot {
 	artifacts(useCase: IdOrKey!, filter: ArtifactFilter): [JobArtifact!]!
 	artifact(useCase: IdOrKey!, id: UUID!): JobArtifact
 	meta: MetaObject!
-}
-
-input RagdataGenerationConfig {
-	chunksPerQuestion: Int!
-	model: IdOrKey!
-	systemPrompt: String
 }
 
 input RemoteConfigInput {
@@ -1530,8 +1476,9 @@ type RemoteEnvTestOnline {
 	description: String!
 }
 
-type RewardServerTrainingParamsOutput {
-	remoteEnvId: String!
+input ResizePartitionInput {
+	harmonyGroup: String!
+	size: Int!
 }
 
 type Role {
@@ -1548,28 +1495,12 @@ input RoleCreate {
 	permissions: [String!]!
 }
 
-type SampleConfigOutput {
-	feedbackType: FeedbackTypeOutput
-	datasource: SampleDatasourceOutput!
+input SampleConfig {
+	selectionType: SelectionTypeInput!
+	sampleSize: Int
 }
 
-type SampleDatasourceCompletionsOutput {
-	selectionType: SelectionTypeOutput!
-	maxSamples: Int
-	filter: ListCompletionsFilterOutput
-}
-
-type SampleDatasourceDatasetOutput {
-	datasetKey: IdOrKey!
-}
-
-union SampleDatasourceOutput = SampleDatasourceCompletionsOutput | SampleDatasourceDatasetOutput
-
-type ScalarMetricConfigOutput {
-	threshold: Float
-}
-
-enum SelectionTypeOutput {
+enum SelectionTypeInput {
 	ALL
 	RANDOM
 	LAST
@@ -1582,10 +1513,6 @@ type Session {
 
 type Settings {
 	defaultMetric: MetricWithContext
-}
-
-type SfttrainingParamsOutput {
-	empty: String
 }
 
 type Share {
@@ -1659,11 +1586,6 @@ input TimeRange {
 	to: InputDatetime!
 }
 
-type TimeRangeOutput {
-	from: DateTime!
-	to: DateTime!
-}
-
 type Timeseries {
 	model: Model
 	timeBuckets: [Timestamp!]!
@@ -1687,6 +1609,7 @@ enum TimeseriesInterval {
 	MONTH
 	QUARTER
 	YEAR
+	MILLENNIUM
 }
 
 """
@@ -1708,66 +1631,12 @@ type ToolProvider {
 	protocol: Protocol!
 }
 
-type TrainingConfigOutput {
-	baseTrainingParams: BaseTrainingParamsOutput!
-	trainingMetadata: TrainingMetadataOutput!
-	trainingObjective: TrainingObjectiveOutput!
-}
-
-type TrainingJob {
-	id: UUID!
-	name: String!
-	status: TrainingJobStatus!
-	createdAt: Timestamp!
-	startedAt: Timestamp
-	endedAt: Timestamp
-	durationMs: Int
-	stages: [JobStageOutput!]!
-	childModel: Model
-	parentModel: Model
-	checkpoints: [Model!]!
-	useCase: UseCase
-	config: AdaptRequestConfigOutput!
-	error: String
-	createdBy: User
-}
-
 type TrainingJobStageOutput {
 	monitoringLink: String
 	totalNumSamples: Int
 	processedNumSamples: Int
 	checkpoints: [String!]!
 }
-
-enum TrainingJobStatus {
-	PENDING
-	RUNNING
-	COMPLETED
-	FAILED
-	CANCELED
-}
-
-type TrainingMetadataOutput {
-	trainingType: TrainingMetadataOutputTrainingType!
-	alignmentMethod: TrainingMetadataOutputAlignmentMethod!
-	parameters: TrainingMetadataOutputParameters
-}
-
-enum TrainingMetadataOutputAlignmentMethod {
-	DPO
-	PPO
-	SFT
-	GRPO
-}
-
-union TrainingMetadataOutputParameters = DpotrainingParamsOutput | PpotrainingParamsOutput | GrpotrainingParamsOutput
-
-enum TrainingMetadataOutputTrainingType {
-	FULL_WEIGHTS
-	PARAMETER_EFFICIENT
-}
-
-union TrainingObjectiveOutput = MetricTrainingParamsOutput | JudgeTrainingParamsOutput | GuidelinesTrainingParamsOutput | SfttrainingParamsOutput | RewardServerTrainingParamsOutput
 
 type TrendResult {
 	trend: Float!
@@ -1856,7 +1725,7 @@ type Usage {
 }
 
 type UsageAggregateItem {
-	bucketTs: Int!
+	bucketTs: Timestamp!
 	promptTokens: Int!
 	completionTokens: Int!
 	totalTokens: Int!
@@ -1874,13 +1743,30 @@ type UsageAggregatePerUseCaseItem {
 
 input UsageFilterInput {
 	modelId: UUID!
-	timerange: TimeRange!
+	timerange: TimeRange
 	unit: DateBucketUnit!
+	timezone: String
 }
 
 input UsagePerUseCaseFilterInput {
 	modelId: UUID!
-	timerange: TimeRange!
+	timerange: TimeRange
+}
+
+type UsageStats {
+	totalTokens: Int!
+	interactions: Int!
+	promptTokens: Int!
+	completionTokens: Int!
+}
+
+type UsageStatsByModel {
+	model: Model!
+	totalTokens: Int!
+	interactions: Int!
+	promptTokens: Int!
+	completionTokens: Int!
+	timeseries: [UsageAggregateItem!]!
 }
 
 type UseCase {
@@ -1897,8 +1783,6 @@ type UseCase {
 	metrics: [MetricWithContext!]!
 	metric(metric: IdOrKey!): MetricWithContext
 	abCampaigns(filter: AbCampaignFilter! = {active: null, status: null, useCase: null}): [Abcampaign!]!
-	autoEvals: [EvaluationJob!]!
-	trainingJobs: [TrainingJob!]!
 	widgets: [Widget!]!
 	metadata: UseCaseMetadata!
 	permissions: [String!]!
