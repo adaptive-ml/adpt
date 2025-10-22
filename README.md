@@ -43,7 +43,7 @@ Note that completions for things like recipe keys will only work when a default 
 Most commands require a `--usecase` option to specify the use case:
 
 ```sh
-adpt --usecase my-usecase recipes
+adpt recipes --usecase my-usecase
 ```
 
 However to avoid specifying this every time, the `DEFAULT_USECASE` environment

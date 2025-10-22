@@ -31,8 +31,6 @@ mod ui;
 #[command(version)]
 #[command(about = "A tool interacting with the Adaptive platform")]
 struct Cli {
-    #[arg(short, long)]
-    usecase: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -41,6 +39,8 @@ struct Cli {
 enum Commands {
     /// Run recipe
     Run {
+        #[arg(short, long)]
+        usecase: Option<String>,
         /// Recipe ID or key
         #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
         recipe: String,
@@ -59,6 +59,8 @@ enum Commands {
     },
     /// Upload recipe
     Publish {
+        #[arg(short, long)]
+        usecase: Option<String>,
         #[arg(value_hint = ValueHint::AnyPath)]
         recipe: PathBuf,
         /// Recipe name
@@ -69,7 +71,10 @@ enum Commands {
         key: Option<String>,
     },
     /// List recipes
-    Recipes {},
+    Recipes {
+        #[arg(short, long)]
+        usecase: Option<String>,
+    },
     /// Inspect job
     Job {
         id: Uuid,
@@ -82,7 +87,10 @@ enum Commands {
     /// Cancel a job
     CancelJob { id: Uuid },
     /// List models
-    Models {},
+    Models {
+        #[arg(short, long)]
+        usecase: Option<String>,
+    },
     /// Store your API key in the OS keyring
     SetApiKey { api_key: String },
 }
@@ -98,19 +106,24 @@ fn main() -> Result<()> {
     let config = config::read_config()?;
     let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
 
-    //FIXME not everything needs a usecase, ie setting credentials
-    let usecase = cli.usecase.or(config.default_use_case).ok_or(anyhow!(
-        "A usecase must be specified via the --usecase argument or a default usecase configured"
-    ))?;
+    let load_usecase = |maybe_usecase: Option<String>| {
+        maybe_usecase.or(config.default_use_case).expect(
+            "A usecase must be specified via the --usecase argument or a default usecase configured"
+        )
+    };
 
     rt.block_on(async {
         match cli.command {
-            Commands::Recipes {} => list_recipes(&client, &usecase).await,
+            Commands::Recipes { usecase } => list_recipes(&client, &load_usecase(usecase)).await,
             Commands::Job { id, follow } => get_job(Arc::new(client), id, follow).await,
-            Commands::Publish { recipe, name, key } => {
-                publish_recipe(&client, &usecase, name, key, recipe).await
-            }
+            Commands::Publish {
+                usecase,
+                recipe,
+                name,
+                key,
+            } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
             Commands::Run {
+                usecase,
                 recipe,
                 paramters,
                 name,
@@ -119,7 +132,7 @@ fn main() -> Result<()> {
             } => {
                 run_recipe(
                     &client,
-                    &usecase,
+                    &load_usecase(usecase),
                     recipe,
                     paramters,
                     name,
@@ -129,9 +142,9 @@ fn main() -> Result<()> {
                 .await
             }
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
-            Commands::Jobs => list_jobs(&client, Some(usecase)).await,
+            Commands::Jobs => list_jobs(&client, None).await,
             Commands::CancelJob { id } => cancel_job(&client, id).await,
-            Commands::Models {} => list_models(&client, usecase).await,
+            Commands::Models { usecase } => list_models(&client, load_usecase(usecase)).await,
         }
     })
 }
