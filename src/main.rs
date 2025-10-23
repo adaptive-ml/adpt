@@ -6,6 +6,7 @@ use iocraft::prelude::*;
 use serde_json::Map;
 use slug::slugify;
 use std::{
+    fs,
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -295,90 +296,104 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 }
 
 async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -> Result<()> {
-    //FIXME restore properties from file, no preperties behaviour
-    let recipe_contents = client
-        .get_recipe(usecase.to_string(), run_args.recipe.clone())
-        .await?
-        .ok_or_else(|| anyhow!("Recipe not found"))?;
-    let schema = recipe_contents.json_schema;
-    let schema: JsonSchema =
-        serde_json::from_value(schema).map_err(|e| anyhow!("Failed to parse JSON schema: {e}"))?;
+    let parameters = if let Some(parameters_file) = run_args.paramters {
+        let content = fs::read_to_string(&parameters_file)?;
+        serde_json::from_str(&content).map_err(|e| {
+            anyhow!(
+                "Failed to parse parameters: {e} from file {}",
+                parameters_file.clone().to_str().unwrap()
+            )
+        })?
+    } else if run_args.recipe.is_empty() {
+        Map::new()
+    } else {
+        let recipe_contents = client
+            .get_recipe(usecase.to_string(), run_args.recipe.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Recipe not found"))?;
+        let schema = recipe_contents.json_schema;
+        let schema: JsonSchema = serde_json::from_value(schema)
+            .map_err(|e| anyhow!("Failed to parse JSON schema: {e}"))?;
 
-    let expected_args = schema
-        .properties
-        .iter()
-        .filter_map(|(name, value)| match value {
-            JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
-                let base = Arg::new(name)
-                    .required(schema.required.contains(name))
-                    .help(regular_json_schema_property_contents.description.clone())
-                    .long(name);
+        let expected_args = schema
+            .properties
+            .iter()
+            .filter_map(|(name, value)| match value {
+                JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
+                    let base = Arg::new(name)
+                        .required(schema.required.contains(name))
+                        .help(regular_json_schema_property_contents.description.clone())
+                        .long(name);
 
-                match regular_json_schema_property_contents.type_.as_str() {
-                    "integer" => Some(base.value_parser(value_parser!(i64))),
-                    "string" => Some(base.value_parser(value_parser!(String))),
-                    "boolean" => Some(base.value_parser(value_parser!(bool))),
-                    "number" => Some(base.value_parser(value_parser!(f64))),
-                    _ => None, //FIXME error in this case
+                    match regular_json_schema_property_contents.type_.as_str() {
+                        "integer" => Some(base.value_parser(value_parser!(i64))),
+                        "string" => Some(base.value_parser(value_parser!(String))),
+                        "boolean" => Some(base.value_parser(value_parser!(bool))),
+                        "number" => Some(base.value_parser(value_parser!(f64))),
+                        _ => None, //FIXME error in this case
+                    }
                 }
-            }
-            JsonSchemaPropertyContents::Union(_) => Some(Arg::new(name).required(true).long(name)),
-        })
-        .collect::<Vec<_>>();
-
-    let command = Command::new(format!("adpt run {} --", run_args.recipe))
-        .args(expected_args)
-        .no_binary_name(true);
-    //FIXME ensure clap output is nicely formatted
-    let parsed_args = command.try_get_matches_from(run_args.args)?;
-
-    let mut parameters = Map::new();
-    for (name, value) in schema.properties {
-        match value {
-            JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
-                match regular_json_schema_property_contents.type_.as_str() {
-                    "integer" => {
-                        if let Some(value) = parsed_args.get_one::<i64>(&name) {
-                            let v = serde_json::to_value(value).unwrap();
-                            parameters.insert(name.clone(), v);
-                        }
-                    }
-                    "string" => {
-                        if let Some(value) = parsed_args.get_one::<String>(&name) {
-                            let v = serde_json::to_value(value).unwrap();
-                            parameters.insert(name.clone(), v);
-                        }
-                    }
-                    "boolean" => {
-                        if let Some(value) = parsed_args.get_one::<bool>(&name) {
-                            let v = serde_json::to_value(value).unwrap();
-                            parameters.insert(name.clone(), v);
-                        }
-                    }
-                    "number" => {
-                        if let Some(value) = parsed_args.get_one::<f64>(&name) {
-                            let v = serde_json::to_value(value).unwrap();
-                            parameters.insert(name.clone(), v);
-                        }
-                    }
-
-                    _ => (),
+                JsonSchemaPropertyContents::Union(_) => {
+                    Some(Arg::new(name).required(true).long(name))
                 }
-            }
-            JsonSchemaPropertyContents::Union(_) => {
-                if let Some(value) = parsed_args.get_one::<String>(&name) {
-                    //FIXME so provide a arg validator that checks for json
-                    let v = serde_json::from_str(value).unwrap();
-                    parameters.insert(name.clone(), v);
+            })
+            .collect::<Vec<_>>();
+
+        let command = Command::new(format!("adpt run {} --", run_args.recipe))
+            .args(expected_args)
+            .no_binary_name(true);
+        //FIXME ensure clap output is nicely formatted
+        let parsed_args = command.try_get_matches_from(run_args.args)?;
+
+        let mut parameters = Map::new();
+        for (name, value) in schema.properties {
+            match value {
+                JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
+                    match regular_json_schema_property_contents.type_.as_str() {
+                        "integer" => {
+                            if let Some(value) = parsed_args.get_one::<i64>(&name) {
+                                let v = serde_json::to_value(value).unwrap();
+                                parameters.insert(name.clone(), v);
+                            }
+                        }
+                        "string" => {
+                            if let Some(value) = parsed_args.get_one::<String>(&name) {
+                                let v = serde_json::to_value(value).unwrap();
+                                parameters.insert(name.clone(), v);
+                            }
+                        }
+                        "boolean" => {
+                            if let Some(value) = parsed_args.get_one::<bool>(&name) {
+                                let v = serde_json::to_value(value).unwrap();
+                                parameters.insert(name.clone(), v);
+                            }
+                        }
+                        "number" => {
+                            if let Some(value) = parsed_args.get_one::<f64>(&name) {
+                                let v = serde_json::to_value(value).unwrap();
+                                parameters.insert(name.clone(), v);
+                            }
+                        }
+
+                        _ => (),
+                    }
+                }
+                JsonSchemaPropertyContents::Union(_) => {
+                    if let Some(value) = parsed_args.get_one::<String>(&name) {
+                        //FIXME so provide a arg validator that checks for json
+                        let v = serde_json::from_str(value).unwrap();
+                        parameters.insert(name.clone(), v);
+                    }
                 }
             }
         }
-    }
+        parameters
+    };
 
     let response = client
         .run_recipe(
             usecase,
-            &recipe_contents.id.to_string(),
+            &run_args.recipe.to_string(),
             parameters,
             run_args.name,
             run_args.compute_pool,
