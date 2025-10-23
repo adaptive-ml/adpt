@@ -318,11 +318,11 @@ async fn run_recipe(
     args: Vec<String>,
 ) -> Result<()> {
     //FIXME restore properties from file, no preperties behaviour
-    let recipe = client
-        .get_recipe(usecase.to_string(), recipe)
+    let recipe_contents = client
+        .get_recipe(usecase.to_string(), recipe.clone())
         .await?
         .ok_or_else(|| anyhow!("Recipe not found"))?;
-    let schema = recipe.json_schema;
+    let schema = recipe_contents.json_schema;
     let schema: JsonSchema =
         serde_json::from_value(schema).map_err(|e| anyhow!("Failed to parse JSON schema: {e}"))?;
 
@@ -348,8 +348,7 @@ async fn run_recipe(
         })
         .collect::<Vec<_>>();
 
-    //FIXME us input value (probs key)
-    let command = Command::new(format!("adpt run {} --", recipe.id))
+    let command = Command::new(format!("adpt run {recipe} --"))
         .args(expected_args)
         .no_binary_name(true);
     //FIXME ensure clap output is nicely formatted
@@ -401,7 +400,7 @@ async fn run_recipe(
     let response = client
         .run_recipe(
             usecase,
-            &recipe.id.to_string(),
+            &recipe_contents.id.to_string(),
             parameters,
             name,
             compute_pool,
