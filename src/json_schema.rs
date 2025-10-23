@@ -27,4 +27,6 @@ pub struct RegularJsonSchemaPropertyContents {
     #[serde(rename = "type")]
     pub type_: String,
     pub description: String,
+    #[serde(rename = "enum")]
+    pub enum_: Option<Vec<String>>,
 }

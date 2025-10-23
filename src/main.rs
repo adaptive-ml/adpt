@@ -344,10 +344,11 @@ async fn run_recipe(
                     "integer" => Some(base.value_parser(value_parser!(i64))),
                     "string" => Some(base.value_parser(value_parser!(String))),
                     "boolean" => Some(base.value_parser(value_parser!(bool))),
+                    "number" => Some(base.value_parser(value_parser!(f64))),
                     _ => None,
                 }
             }
-            JsonSchemaPropertyContents::Union(union_json_schema_property_contents) => None,
+            JsonSchemaPropertyContents::Union(_) => Some(Arg::new(name).required(true).long(name)),
         })
         .collect::<Vec<_>>();
 
@@ -380,11 +381,23 @@ async fn run_recipe(
                             parameters.insert(name.clone(), v);
                         }
                     }
+                    "number" => {
+                        if let Some(value) = parsed_args.get_one::<f64>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
 
                     _ => (),
                 }
             }
-            JsonSchemaPropertyContents::Union(union_json_schema_property_contents) => (),
+            JsonSchemaPropertyContents::Union(union_json_schema_property_contents) => {
+                if let Some(value) = parsed_args.get_one::<String>(&name) {
+                    //FIXME so provide a arg validator that checks for json
+                    let v = serde_json::from_str(value).unwrap();
+                    parameters.insert(name.clone(), v);
+                }
+            }
         }
     }
 
