@@ -391,7 +391,7 @@ async fn run_recipe(
                     _ => (),
                 }
             }
-            JsonSchemaPropertyContents::Union(union_json_schema_property_contents) => {
+            JsonSchemaPropertyContents::Union(_) => {
                 if let Some(value) = parsed_args.get_one::<String>(&name) {
                     //FIXME so provide a arg validator that checks for json
                     let v = serde_json::from_str(value).unwrap();

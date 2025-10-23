@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
-use serde_json::Value;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct JsonSchema {
