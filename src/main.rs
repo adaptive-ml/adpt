@@ -326,9 +326,8 @@ async fn run_recipe(
         .await?
         .ok_or_else(|| anyhow!("Recipe not found"))?;
     let schema = recipe.json_schema;
-    dbg!(&schema);
-    let schema: JsonSchema = serde_json::from_value(schema).unwrap();
-    dbg!(&schema.properties);
+    let schema: JsonSchema =
+        serde_json::from_value(schema).map_err(|e| anyhow!("Failed to parse JSON schema: {e}"))?;
 
     let expected_args = schema
         .properties
@@ -345,7 +344,7 @@ async fn run_recipe(
                     "string" => Some(base.value_parser(value_parser!(String))),
                     "boolean" => Some(base.value_parser(value_parser!(bool))),
                     "number" => Some(base.value_parser(value_parser!(f64))),
-                    _ => None,
+                    _ => None, //FIXME error in this case
                 }
             }
             JsonSchemaPropertyContents::Union(_) => Some(Arg::new(name).required(true).long(name)),
@@ -356,6 +355,7 @@ async fn run_recipe(
     let command = Command::new(format!("adpt run {} --", recipe.id))
         .args(expected_args)
         .no_binary_name(true);
+    //FIXME ensure clap output is nicely formatted
     let parsed_args = command.try_get_matches_from(args)?;
 
     let mut parameters = Map::new();
@@ -401,15 +401,6 @@ async fn run_recipe(
         }
     }
 
-    dbg!(&parameters);
-
-    // let parameters: Map<String, Value> = if let Some(parameters) = parameters {
-    //     let file = File::open(parameters)?;
-    //     let reader = BufReader::new(file);
-    //     serde_json::from_reader(reader)?
-    // } else {
-    //     Map::new()
-    // };
     let response = client
         .run_recipe(
             usecase,
