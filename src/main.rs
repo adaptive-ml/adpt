@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow, bail};
-use clap::{Arg, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
+use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
 use iocraft::prelude::*;
@@ -37,29 +37,35 @@ struct Cli {
     command: Commands,
 }
 
+#[derive(Args)]
+struct RunArgs {
+    /// Recipe ID or key
+    #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
+    recipe: String,
+    /// A file containing a JSON object of paramters for the recipe
+    #[arg(short, long, value_hint = ValueHint::FilePath)]
+    paramters: Option<PathBuf>,
+    /// The name of the run
+    #[arg(short, long)]
+    name: Option<String>,
+    /// The compute pool to run the recipe on
+    #[arg(short, long, add = ArgValueCompleter::new(pool_completer))]
+    compute_pool: Option<String>,
+    /// The number of GPUs to run the recipe on
+    #[arg(short, long)]
+    gpus: Option<u32>,
+    #[arg(last = true, num_args = 1..)]
+    args: Vec<String>,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Run recipe
     Run {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
-        /// Recipe ID or key
-        #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
-        recipe: String,
-        /// A file containing a JSON object of paramters for the recipe
-        #[arg(short, long, value_hint = ValueHint::FilePath)]
-        paramters: Option<PathBuf>,
-        /// The name of the run
-        #[arg(short, long)]
-        name: Option<String>,
-        /// The compute pool to run the recipe on
-        #[arg(short, long, add = ArgValueCompleter::new(pool_completer))]
-        compute_pool: Option<String>,
-        /// The number of GPUs to run the recipe on
-        #[arg(short, long)]
-        gpus: Option<u32>,
-        #[arg(last = true, num_args = 1..)]
-        args: Vec<String>,
+        #[command(flatten)]
+        args: RunArgs,
     },
     /// Upload recipe
     Publish {
@@ -126,26 +132,8 @@ fn main() -> Result<()> {
                 name,
                 key,
             } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
-            Commands::Run {
-                usecase,
-                recipe,
-                paramters,
-                name,
-                compute_pool,
-                gpus,
-                args,
-            } => {
-                run_recipe(
-                    &client,
-                    &load_usecase(usecase),
-                    recipe,
-                    paramters,
-                    name,
-                    compute_pool,
-                    gpus,
-                    args,
-                )
-                .await
+            Commands::Run { usecase, args } => {
+                run_recipe(&client, &load_usecase(usecase), args).await
             }
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             Commands::Jobs => list_jobs(&client, None).await,
@@ -306,20 +294,10 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     completions
 }
 
-//FIXME switch arg parse to use flattened struct
-async fn run_recipe(
-    client: &AdaptiveClient,
-    usecase: &str,
-    recipe: String,
-    parameters: Option<PathBuf>,
-    name: Option<String>,
-    compute_pool: Option<String>,
-    num_gpus: Option<u32>,
-    args: Vec<String>,
-) -> Result<()> {
+async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -> Result<()> {
     //FIXME restore properties from file, no preperties behaviour
     let recipe_contents = client
-        .get_recipe(usecase.to_string(), recipe.clone())
+        .get_recipe(usecase.to_string(), run_args.recipe.clone())
         .await?
         .ok_or_else(|| anyhow!("Recipe not found"))?;
     let schema = recipe_contents.json_schema;
@@ -348,11 +326,11 @@ async fn run_recipe(
         })
         .collect::<Vec<_>>();
 
-    let command = Command::new(format!("adpt run {recipe} --"))
+    let command = Command::new(format!("adpt run {} --", run_args.recipe))
         .args(expected_args)
         .no_binary_name(true);
     //FIXME ensure clap output is nicely formatted
-    let parsed_args = command.try_get_matches_from(args)?;
+    let parsed_args = command.try_get_matches_from(run_args.args)?;
 
     let mut parameters = Map::new();
     for (name, value) in schema.properties {
@@ -402,9 +380,9 @@ async fn run_recipe(
             usecase,
             &recipe_contents.id.to_string(),
             parameters,
-            name,
-            compute_pool,
-            num_gpus.unwrap_or(1),
+            run_args.name,
+            run_args.compute_pool,
+            run_args.gpus.unwrap_or(1),
         )
         .await?;
 
