@@ -342,8 +342,13 @@ async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -
         let command = Command::new(format!("adpt run {} --", run_args.recipe))
             .args(expected_args)
             .no_binary_name(true);
-        //FIXME ensure clap output is nicely formatted
-        let parsed_args = command.try_get_matches_from(run_args.args)?;
+
+        let parsed_result = command.try_get_matches_from(run_args.args);
+
+        let parsed_args = match parsed_result {
+            Ok(result) => result,
+            Err(e) => e.exit(),
+        };
 
         let mut parameters = Map::new();
         for (name, value) in schema.properties {
