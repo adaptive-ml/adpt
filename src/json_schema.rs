@@ -12,12 +12,14 @@ pub struct JsonSchema {
 #[serde(untagged)]
 pub enum JsonSchemaPropertyContents {
     Regular(RegularJsonSchemaPropertyContents),
+    #[allow(dead_code)]
     Union(UnionJsonSchemaPropertyContents),
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct UnionJsonSchemaPropertyContents {
     #[serde(rename = "oneOf")]
+    #[allow(dead_code)]
     one_of: Vec<JsonSchema>,
 }
 
@@ -26,6 +28,4 @@ pub struct RegularJsonSchemaPropertyContents {
     #[serde(rename = "type")]
     pub type_: String,
     pub description: String,
-    #[serde(rename = "enum")]
-    pub enum_: Option<Vec<String>>,
 }

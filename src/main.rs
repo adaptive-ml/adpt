@@ -1,15 +1,11 @@
 use anyhow::{Result, anyhow, bail};
-use clap::{Arg, Command, CommandFactory, Id, Parser, Subcommand, ValueHint, value_parser};
+use clap::{Arg, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
 use iocraft::prelude::*;
-use serde::Deserialize;
-use serde_json::{Map, Value};
-use serde_json_schema::Schema;
+use serde_json::Map;
 use slug::slugify;
 use std::{
-    fs::File,
-    io::BufReader,
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -321,6 +317,7 @@ async fn run_recipe(
     num_gpus: Option<u32>,
     args: Vec<String>,
 ) -> Result<()> {
+    //FIXME restore properties from file, no preperties behaviour
     let recipe = client
         .get_recipe(usecase.to_string(), recipe)
         .await?
