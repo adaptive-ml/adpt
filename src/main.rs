@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
@@ -56,6 +56,8 @@ enum Commands {
         /// The number of GPUs to run the recipe on
         #[arg(short, long)]
         gpus: Option<u32>,
+        #[arg(last = true, num_args = 1..)]
+        args: Vec<String>,
     },
     /// Upload recipe
     Publish {
@@ -129,6 +131,7 @@ fn main() -> Result<()> {
                 name,
                 compute_pool,
                 gpus,
+                args,
             } => {
                 run_recipe(
                     &client,
@@ -138,6 +141,7 @@ fn main() -> Result<()> {
                     name,
                     compute_pool,
                     gpus,
+                    args,
                 )
                 .await
             }
@@ -300,6 +304,7 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     completions
 }
 
+//FIXME switch arg parse to use flattened struct
 async fn run_recipe(
     client: &AdaptiveClient,
     usecase: &str,
@@ -308,7 +313,14 @@ async fn run_recipe(
     name: Option<String>,
     compute_pool: Option<String>,
     num_gpus: Option<u32>,
+    args: Vec<String>,
 ) -> Result<()> {
+    let recipe = client
+        .get_recipe(usecase.to_string(), recipe)
+        .await?
+        .ok_or_else(|| anyhow!("Recipe not found"))?;
+    let schema = recipe.json_schema;
+
     let parameters: Map<String, Value> = if let Some(parameters) = parameters {
         let file = File::open(parameters)?;
         let reader = BufReader::new(file);
@@ -319,7 +331,7 @@ async fn run_recipe(
     let response = client
         .run_recipe(
             usecase,
-            &recipe,
+            &recipe.id.to_string(),
             parameters,
             name,
             compute_pool,
