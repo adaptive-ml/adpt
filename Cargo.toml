@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0.100"
+autumnus = { version = "0.7.6", default-features = false, features = ["lang-json"] }
 clap = { version = "4.5.47", features = ["derive", "string"] }
 clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
 directories = "6.0.0"

@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow, bail};
+use autumnus::{FormatterOption, Options, highlight, themes};
 use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
@@ -104,6 +105,12 @@ enum Commands {
     },
     /// Store your API key in the OS keyring
     SetApiKey { api_key: String },
+    /// Display the schema for inputs for a recipe
+    Schema {
+        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
+        usecase: Option<String>,
+        recipe: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -140,8 +147,29 @@ fn main() -> Result<()> {
             Commands::Jobs => list_jobs(&client, None).await,
             Commands::CancelJob { id } => cancel_job(&client, id).await,
             Commands::Models { usecase } => list_models(&client, load_usecase(usecase)).await,
+            Commands::Schema { usecase, recipe } => {
+                print_schema(&client, load_usecase(usecase), recipe).await
+            }
         }
     })
+}
+
+async fn print_schema(client: &AdaptiveClient, usecase: String, recipe: String) -> Result<()> {
+    let recipe = client
+        .get_recipe(usecase, recipe)
+        .await?
+        .ok_or_else(|| anyhow!("Recipe not found"))?;
+    let output = highlight(
+        &serde_json::to_string_pretty(&recipe.json_schema)?,
+        Options {
+            formatter: FormatterOption::Terminal {
+                theme: Some(themes::get("ayu_light").expect("Syntax highlighting theme not found")),
+            },
+            lang_or_file: Some("json"),
+        },
+    );
+    println!("{}", output);
+    Ok(())
 }
 
 async fn list_models(client: &AdaptiveClient, usecase: String) -> Result<()> {
