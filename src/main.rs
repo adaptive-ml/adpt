@@ -1,9 +1,11 @@
 use anyhow::{Result, anyhow, bail};
-use clap::{CommandFactory, Parser, Subcommand, ValueHint};
+use clap::{Arg, Command, CommandFactory, Id, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
 use iocraft::prelude::*;
+use serde::Deserialize;
 use serde_json::{Map, Value};
+use serde_json_schema::Schema;
 use slug::slugify;
 use std::{
     fs::File,
@@ -304,6 +306,30 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     completions
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct JsonSchemaProperty {
+    name: String,
+    contents: JsonSchemaPropertyContents,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum JsonSchemaPropertyContents {
+    Regular(RegularJsonSchemaPropertyContents),
+    Union(UnionJsonSchemaPropertyContents),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct UnionJsonSchemaPropertyContents {}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RegularJsonSchemaPropertyContents {
+    #[serde(rename = "type")]
+    type_: String,
+    description: String,
+    default: Option<Value>,
+}
+
 //FIXME switch arg parse to use flattened struct
 async fn run_recipe(
     client: &AdaptiveClient,
@@ -320,14 +346,85 @@ async fn run_recipe(
         .await?
         .ok_or_else(|| anyhow!("Recipe not found"))?;
     let schema = recipe.json_schema;
+    let properties = schema["properties"].as_object().unwrap();
+    dbg!(&properties);
+    let properties = properties
+        .iter()
+        .map(|(name, value)| {
+            let value: JsonSchemaPropertyContents =
+                serde_json::from_value(value.to_owned()).unwrap();
+            let name = name.to_string();
+            (name, value)
+        })
+        .collect::<Vec<_>>();
+    dbg!(&properties);
 
-    let parameters: Map<String, Value> = if let Some(parameters) = parameters {
-        let file = File::open(parameters)?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader)?
-    } else {
-        Map::new()
-    };
+    //FIXME slugify to prep arg
+    let expected_args = properties
+        .iter()
+        .filter_map(|(name, value)| match value {
+            JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
+                let base = Arg::new(name)
+                    .required(regular_json_schema_property_contents.default.is_none())
+                    .long(name);
+
+                match regular_json_schema_property_contents.type_.as_str() {
+                    "integer" => Some(base.value_parser(value_parser!(i64))),
+                    "string" => Some(base.value_parser(value_parser!(String))),
+                    "boolean" => Some(base.value_parser(value_parser!(bool))),
+                    _ => None,
+                }
+            }
+            JsonSchemaPropertyContents::Union(union_json_schema_property_contents) => None,
+        })
+        .collect::<Vec<_>>();
+
+    //FIXME us input value (probs key)
+    let command = Command::new(format!("adpt run {} --", recipe.id))
+        .args(expected_args)
+        .no_binary_name(true);
+    let parsed_args = command.try_get_matches_from(args)?;
+
+    let mut parameters = Map::new();
+    for (name, value) in properties {
+        match value {
+            JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
+                match regular_json_schema_property_contents.type_.as_str() {
+                    "integer" => {
+                        if let Some(value) = parsed_args.get_one::<i64>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
+                    "string" => {
+                        if let Some(value) = parsed_args.get_one::<String>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
+                    "boolean" => {
+                        if let Some(value) = parsed_args.get_one::<bool>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
+
+                    _ => (),
+                }
+            }
+            JsonSchemaPropertyContents::Union(union_json_schema_property_contents) => (),
+        }
+    }
+
+    dbg!(&parameters);
+
+    // let parameters: Map<String, Value> = if let Some(parameters) = parameters {
+    //     let file = File::open(parameters)?;
+    //     let reader = BufReader::new(file);
+    //     serde_json::from_reader(reader)?
+    // } else {
+    //     Map::new()
+    // };
     let response = client
         .run_recipe(
             usecase,

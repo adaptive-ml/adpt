@@ -33,6 +33,7 @@ dependencies = [
  "keyring",
  "reqwest",
  "serde",
+ "serde-json-schema",
  "serde_json",
  "slug",
  "tempfile",
@@ -1356,6 +1357,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "json-pointer"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fe841b94e719a482213cee19dd04927cf412f26d8dc84c5a446c081e49c2997"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "keyring"
 version = "3.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2132,6 +2142,18 @@ checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-json-schema"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "481fc729c42ca7b2e93ac70540d05d58511399fef0a28c0d1c163304b042a142"
+dependencies = [
+ "json-pointer",
+ "serde",
+ "serde_json",
+ "url",
 ]
 
 [[package]]
