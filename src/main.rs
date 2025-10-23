@@ -21,10 +21,14 @@ use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 use zip_extensions::write::ZipWriterExtensions;
 
-use crate::ui::{JobsList, ModelsList, RecipeList};
+use crate::{
+    json_schema::{JsonSchema, JsonSchemaPropertyContents},
+    ui::{JobsList, ModelsList, RecipeList},
+};
 
 mod client;
 mod config;
+mod json_schema;
 mod serde_utils;
 mod ui;
 
@@ -306,30 +310,6 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     completions
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct JsonSchemaProperty {
-    name: String,
-    contents: JsonSchemaPropertyContents,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-enum JsonSchemaPropertyContents {
-    Regular(RegularJsonSchemaPropertyContents),
-    Union(UnionJsonSchemaPropertyContents),
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct UnionJsonSchemaPropertyContents {}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RegularJsonSchemaPropertyContents {
-    #[serde(rename = "type")]
-    type_: String,
-    description: String,
-    default: Option<Value>,
-}
-
 //FIXME switch arg parse to use flattened struct
 async fn run_recipe(
     client: &AdaptiveClient,
@@ -346,26 +326,18 @@ async fn run_recipe(
         .await?
         .ok_or_else(|| anyhow!("Recipe not found"))?;
     let schema = recipe.json_schema;
-    let properties = schema["properties"].as_object().unwrap();
-    dbg!(&properties);
-    let properties = properties
-        .iter()
-        .map(|(name, value)| {
-            let value: JsonSchemaPropertyContents =
-                serde_json::from_value(value.to_owned()).unwrap();
-            let name = name.to_string();
-            (name, value)
-        })
-        .collect::<Vec<_>>();
-    dbg!(&properties);
+    dbg!(&schema);
+    let schema: JsonSchema = serde_json::from_value(schema).unwrap();
+    dbg!(&schema.properties);
 
-    //FIXME slugify to prep arg
-    let expected_args = properties
+    let expected_args = schema
+        .properties
         .iter()
         .filter_map(|(name, value)| match value {
             JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
                 let base = Arg::new(name)
-                    .required(regular_json_schema_property_contents.default.is_none())
+                    .required(schema.required.contains(name))
+                    .help(regular_json_schema_property_contents.description.clone())
                     .long(name);
 
                 match regular_json_schema_property_contents.type_.as_str() {
@@ -386,7 +358,7 @@ async fn run_recipe(
     let parsed_args = command.try_get_matches_from(args)?;
 
     let mut parameters = Map::new();
-    for (name, value) in properties {
+    for (name, value) in schema.properties {
         match value {
             JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
                 match regular_json_schema_property_contents.type_.as_str() {
