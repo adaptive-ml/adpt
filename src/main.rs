@@ -1,13 +1,12 @@
-use anyhow::{Result, bail};
-use clap::{CommandFactory, Parser, Subcommand, ValueHint};
+use anyhow::{Result, anyhow, bail};
+use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
 use iocraft::prelude::*;
 use serde_json::{Map, Value};
 use slug::slugify;
 use std::{
-    fs::File,
-    io::BufReader,
+    fs,
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -19,10 +18,14 @@ use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 use zip_extensions::write::ZipWriterExtensions;
 
-use crate::ui::{JobsList, ModelsList, RecipeList};
+use crate::{
+    json_schema::{JsonSchema, JsonSchemaPropertyContents},
+    ui::{JobsList, ModelsList, RecipeList},
+};
 
 mod client;
 mod config;
+mod json_schema;
 mod serde_utils;
 mod ui;
 
@@ -35,27 +38,35 @@ struct Cli {
     command: Commands,
 }
 
+#[derive(Args)]
+struct RunArgs {
+    /// Recipe ID or key
+    #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
+    recipe: String,
+    /// A file containing a JSON object of paramters for the recipe
+    #[arg(short, long, value_hint = ValueHint::FilePath)]
+    paramters: Option<PathBuf>,
+    /// The name of the run
+    #[arg(short, long)]
+    name: Option<String>,
+    /// The compute pool to run the recipe on
+    #[arg(short, long, add = ArgValueCompleter::new(pool_completer))]
+    compute_pool: Option<String>,
+    /// The number of GPUs to run the recipe on
+    #[arg(short, long)]
+    gpus: Option<u32>,
+    #[arg(last = true, num_args = 1..)]
+    args: Vec<String>,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Run recipe
     Run {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
-        /// Recipe ID or key
-        #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
-        recipe: String,
-        /// A file containing a JSON object of paramters for the recipe
-        #[arg(short, long, value_hint = ValueHint::FilePath)]
-        paramters: Option<PathBuf>,
-        /// The name of the run
-        #[arg(short, long)]
-        name: Option<String>,
-        /// The compute pool to run the recipe on
-        #[arg(short, long, add = ArgValueCompleter::new(pool_completer))]
-        compute_pool: Option<String>,
-        /// The number of GPUs to run the recipe on
-        #[arg(short, long)]
-        gpus: Option<u32>,
+        #[command(flatten)]
+        args: RunArgs,
     },
     /// Upload recipe
     Publish {
@@ -122,24 +133,8 @@ fn main() -> Result<()> {
                 name,
                 key,
             } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
-            Commands::Run {
-                usecase,
-                recipe,
-                paramters,
-                name,
-                compute_pool,
-                gpus,
-            } => {
-                run_recipe(
-                    &client,
-                    &load_usecase(usecase),
-                    recipe,
-                    paramters,
-                    name,
-                    compute_pool,
-                    gpus,
-                )
-                .await
+            Commands::Run { usecase, args } => {
+                run_recipe(&client, &load_usecase(usecase), args).await
             }
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             Commands::Jobs => list_jobs(&client, None).await,
@@ -300,30 +295,121 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     completions
 }
 
-async fn run_recipe(
+async fn parse_recipe_args(
     client: &AdaptiveClient,
     usecase: &str,
     recipe: String,
-    parameters: Option<PathBuf>,
-    name: Option<String>,
-    compute_pool: Option<String>,
-    num_gpus: Option<u32>,
-) -> Result<()> {
-    let parameters: Map<String, Value> = if let Some(parameters) = parameters {
-        let file = File::open(parameters)?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader)?
-    } else {
-        Map::new()
+    args: Vec<String>,
+) -> Result<Map<String, Value>> {
+    let recipe_contents = client
+        .get_recipe(usecase.to_string(), recipe.clone())
+        .await?
+        .ok_or_else(|| anyhow!("Recipe not found"))?;
+    let schema = recipe_contents.json_schema;
+    let schema: JsonSchema =
+        serde_json::from_value(schema).map_err(|e| anyhow!("Failed to parse JSON schema: {e}"))?;
+
+    let expected_args = schema
+        .properties
+        .iter()
+        .filter_map(|(name, value)| match value {
+            JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
+                let base = Arg::new(name)
+                    .required(schema.required.contains(name))
+                    .help(regular_json_schema_property_contents.description.clone())
+                    .long(name);
+
+                match regular_json_schema_property_contents.type_.as_str() {
+                    "integer" => Some(base.value_parser(value_parser!(i64))),
+                    "string" => Some(base.value_parser(value_parser!(String))),
+                    "boolean" => Some(base.value_parser(value_parser!(bool))),
+                    "number" => Some(base.value_parser(value_parser!(f64))),
+                    _ => None, //FIXME error in this case
+                }
+            }
+            JsonSchemaPropertyContents::Union(_) => Some(Arg::new(name).required(true).long(name)),
+        })
+        .collect::<Vec<_>>();
+
+    let command = Command::new(format!("adpt run {} --", recipe))
+        .args(expected_args)
+        .no_binary_name(true);
+
+    let parsed_result = command.try_get_matches_from(args);
+
+    let parsed_args = match parsed_result {
+        Ok(result) => result,
+        Err(e) => e.exit(),
     };
+
+    let mut parameters = Map::new();
+    for (name, value) in schema.properties {
+        match value {
+            JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
+                match regular_json_schema_property_contents.type_.as_str() {
+                    "integer" => {
+                        if let Some(value) = parsed_args.get_one::<i64>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
+                    "string" => {
+                        if let Some(value) = parsed_args.get_one::<String>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
+                    "boolean" => {
+                        if let Some(value) = parsed_args.get_one::<bool>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
+                    "number" => {
+                        if let Some(value) = parsed_args.get_one::<f64>(&name) {
+                            let v = serde_json::to_value(value).unwrap();
+                            parameters.insert(name.clone(), v);
+                        }
+                    }
+
+                    _ => (),
+                }
+            }
+            JsonSchemaPropertyContents::Union(_) => {
+                if let Some(value) = parsed_args.get_one::<String>(&name) {
+                    //FIXME so provide a arg validator that checks for json
+                    let v = serde_json::from_str(value).unwrap();
+                    parameters.insert(name.clone(), v);
+                }
+            }
+        }
+    }
+    Ok(parameters)
+}
+
+async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -> Result<()> {
+    let parameters = if let Some(parameters_file) = run_args.paramters {
+        let content = fs::read_to_string(&parameters_file)?;
+        serde_json::from_str(&content).map_err(|e| {
+            anyhow!(
+                "Failed to parse parameters: {e} from file {}",
+                parameters_file.clone().to_str().unwrap()
+            )
+        })?
+    } else if run_args.recipe.is_empty() {
+        Map::new()
+    } else {
+        parse_recipe_args(client, usecase, run_args.recipe.clone(), run_args.args).await?
+    };
+
     let response = client
         .run_recipe(
             usecase,
-            &recipe,
+            &run_args.recipe.to_string(),
             parameters,
-            name,
-            compute_pool,
-            num_gpus.unwrap_or(1),
+            run_args.name,
+            run_args.compute_pool,
+            run_args.gpus.unwrap_or(1),
         )
         .await?;
 

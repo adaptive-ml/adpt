@@ -1,0 +1,8 @@
+query GetRecipe($usecase: IdOrKey!, $idOrKey: IdOrKey!) {
+    customRecipe(useCase: $usecase, idOrKey: $idOrKey) {
+        id
+        key
+        name
+        jsonSchema
+    }
+}
