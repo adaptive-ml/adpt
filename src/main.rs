@@ -109,6 +109,7 @@ enum Commands {
     Schema {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
+        #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
         recipe: String,
     },
 }
