@@ -146,7 +146,7 @@ fn main() -> Result<()> {
             }
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             Commands::Jobs => list_jobs(&client, None).await,
-            Commands::CancelJob { id } => cancel_job(&client, id).await,
+            Commands::Cancel { id } => cancel_job(&client, id).await,
             Commands::Models { usecase } => list_models(&client, load_usecase(usecase)).await,
             Commands::Schema { usecase, recipe } => {
                 print_schema(&client, load_usecase(usecase), recipe).await
