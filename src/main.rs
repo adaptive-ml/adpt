@@ -97,7 +97,7 @@ enum Commands {
     /// List currently running jobs
     Jobs,
     /// Cancel a job
-    CancelJob { id: Uuid },
+    Cancel { id: Uuid },
     /// List models
     Models {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
