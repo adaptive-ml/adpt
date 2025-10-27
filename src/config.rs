@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use dotenvy::dotenv;
 use keyring::Entry;
 use serde::Deserialize;
