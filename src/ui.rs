@@ -6,6 +6,7 @@ use iocraft::prelude::*;
 use uuid::Uuid;
 
 use crate::client::get_job::JobStatusOutput;
+use crate::client::list_all_models::{self, ListAllModelsModels};
 use crate::client::list_jobs::{self, ListJobsJobsNodes};
 use crate::client::list_models::{self, ListModelsUseCaseModelServices};
 use crate::client::{AdaptiveClient, get_job};
@@ -91,25 +92,75 @@ fn JobStatusIcon(props: &JobStatusIconProps) -> impl Into<AnyElement<'static>> {
     }
 }
 
-#[derive(Default, Props)]
-pub struct ModelsListProps {
-    pub models: Vec<ListModelsUseCaseModelServices>,
+// Trait to unify model display across model services and models
+trait ModelDisplay {
+    fn get_status(&self) -> String;
+    fn get_id(&self) -> String;
+    fn get_name(&self) -> &str;
+    fn get_key(&self) -> &str;
 }
 
-fn model_status_to_string(status: list_models::ModelserviceStatus) -> String {
-    match status {
-        list_models::ModelserviceStatus::PENDING => "Pending".to_string(),
-        list_models::ModelserviceStatus::ONLINE => "Online".to_string(),
-        list_models::ModelserviceStatus::OFFLINE => "Offline".to_string(),
-        list_models::ModelserviceStatus::DETACHED => "Detached".to_string(),
-        list_models::ModelserviceStatus::TURNED_OFF => "Turned Off".to_string(),
-        list_models::ModelserviceStatus::ERROR => "Error".to_string(),
-        list_models::ModelserviceStatus::Other(other) => other.to_owned(),
+impl ModelDisplay for ListModelsUseCaseModelServices {
+    fn get_status(&self) -> String {
+        match self.status {
+            list_models::ModelserviceStatus::PENDING => "Pending".to_string(),
+            list_models::ModelserviceStatus::ONLINE => "Online".to_string(),
+            list_models::ModelserviceStatus::OFFLINE => "Offline".to_string(),
+            list_models::ModelserviceStatus::DETACHED => "Detached".to_string(),
+            list_models::ModelserviceStatus::TURNED_OFF => "Turned Off".to_string(),
+            list_models::ModelserviceStatus::ERROR => "Error".to_string(),
+            list_models::ModelserviceStatus::Other(ref other) => other.to_owned(),
+        }
+    }
+
+    fn get_id(&self) -> String {
+        self.id.to_string()
+    }
+
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_key(&self) -> &str {
+        &self.key
     }
 }
 
-#[component]
-pub fn ModelsList(props: &ModelsListProps) -> impl Into<AnyElement<'static>> {
+impl ModelDisplay for ListAllModelsModels {
+    fn get_status(&self) -> String {
+        if self.error.is_some() {
+            "Error".to_string()
+        } else if self.is_training {
+            "Training".to_string()
+        } else {
+            match &self.online {
+                list_all_models::ModelOnline::ONLINE => "Online".to_string(),
+                list_all_models::ModelOnline::OFFLINE => "Offline".to_string(),
+                list_all_models::ModelOnline::PENDING => "Pending".to_string(),
+                list_all_models::ModelOnline::ERROR => "Error".to_string(),
+                list_all_models::ModelOnline::Other(other) => other.to_owned(),
+            }
+        }
+    }
+
+    fn get_id(&self) -> String {
+        self.id.to_string()
+    }
+
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_key(&self) -> &str {
+        if self.key.is_empty() {
+            "N/A"
+        } else {
+            &self.key
+        }
+    }
+}
+
+fn render_models_table<T: ModelDisplay + Clone>(models: &[T]) -> impl Into<AnyElement<'static>> {
     element! {
         View(flex_direction: FlexDirection::Column,
              border_style: BorderStyle::Round,
@@ -134,29 +185,29 @@ pub fn ModelsList(props: &ModelsListProps) -> impl Into<AnyElement<'static>> {
                 }
             }
             #({
-                if props.models.is_empty() {
+                if models.is_empty() {
                     vec![element! {
                         View(padding: 2, justify_content: JustifyContent::Center) {
                             Text(content: "No models found", color: Color::Grey)
                         }
                     }]
                 } else {
-                    props.models.clone().into_iter().enumerate().map(|(i, model)| { element! {
+                    models.iter().enumerate().map(|(i, model)| { element! {
                         View(background_color: if i % 2 == 0 { None } else { Some(Color::Grey) }, gap: 2) {
                             View() {
-                                Text(content: model_status_to_string(model.status))
+                                Text(content: model.get_status())
                             }
 
                             View() {
-                                Text(content: model.id)
+                                Text(content: model.get_id())
                             }
 
                             View(width: 25) {
-                                Text(content: model.name)
+                                Text(content: model.get_name())
                             }
 
                             View(padding_right: 1) {
-                                Text(content: model.key)
+                                Text(content: model.get_key())
                             }
                         }
                     }
@@ -165,6 +216,26 @@ pub fn ModelsList(props: &ModelsListProps) -> impl Into<AnyElement<'static>> {
             })
         }
     }
+}
+
+#[derive(Default, Props)]
+pub struct ModelsListProps {
+    pub model_services: Vec<ListModelsUseCaseModelServices>,
+}
+
+#[component]
+pub fn ModelsList(props: &ModelsListProps) -> impl Into<AnyElement<'static>> {
+    render_models_table(&props.model_services)
+}
+
+#[derive(Default, Props)]
+pub struct AllModelsListProps {
+    pub models: Vec<ListAllModelsModels>,
+}
+
+#[component]
+pub fn AllModelsList(props: &AllModelsListProps) -> impl Into<AnyElement<'static>> {
+    render_models_table(&props.models)
 }
 
 #[component]

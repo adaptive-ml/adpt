@@ -1,0 +1,23 @@
+query ListAllModels {
+    models {
+        id
+        key
+        name
+        kind
+        inStorage
+        isTraining
+        online
+        error
+        createdAt
+        backbone {
+            key
+            id
+            __typename
+        }
+        providerName
+        isExternal
+        isAdapter
+        __typename
+    }
+}
+
