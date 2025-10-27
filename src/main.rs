@@ -3,6 +3,7 @@ use autumnus::{FormatterOption, Options, highlight, themes};
 use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
+use dialoguer::Input;
 use iocraft::prelude::*;
 use serde_json::{Map, Value};
 use slug::slugify;
@@ -14,6 +15,7 @@ use std::{
 };
 use tempfile::{NamedTempFile, TempPath};
 use tokio::runtime::Handle;
+use url::Url;
 use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
@@ -44,9 +46,9 @@ struct RunArgs {
     /// Recipe ID or key
     #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
     recipe: String,
-    /// A file containing a JSON object of paramters for the recipe
+    /// A file containing a JSON object of parameters for the recipe
     #[arg(short, long, value_hint = ValueHint::FilePath)]
-    paramters: Option<PathBuf>,
+    parameters: Option<PathBuf>,
     /// The name of the run
     #[arg(short, long)]
     name: Option<String>,
@@ -62,12 +64,23 @@ struct RunArgs {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run recipe
-    Run {
+    /// Cancel a job
+    Cancel { id: Uuid },
+    /// Configure adpt interactively
+    Config,
+    /// Inspect job
+    Job {
+        id: Uuid,
+        /// Follow job status updates until completion
+        #[arg(short, long)]
+        follow: bool,
+    },
+    /// List currently running jobs
+    Jobs,
+    /// List models
+    Models {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
-        #[command(flatten)]
-        args: RunArgs,
     },
     /// Upload recipe
     Publish {
@@ -87,24 +100,13 @@ enum Commands {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
     },
-    /// Inspect job
-    Job {
-        id: Uuid,
-        /// Follow job status updates until completion
-        #[arg(short, long)]
-        follow: bool,
-    },
-    /// List currently running jobs
-    Jobs,
-    /// Cancel a job
-    Cancel { id: Uuid },
-    /// List models
-    Models {
+    /// Run recipe
+    Run {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
+        #[command(flatten)]
+        args: RunArgs,
     },
-    /// Store your API key in the OS keyring
-    SetApiKey { api_key: String },
     /// Display the schema for inputs for a recipe
     Schema {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
@@ -112,6 +114,8 @@ enum Commands {
         #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
         recipe: String,
     },
+    /// Store your API key in the OS keyring
+    SetApiKey { api_key: String },
 }
 
 fn main() -> Result<()> {
@@ -125,6 +129,7 @@ fn main() -> Result<()> {
 
     rt.block_on(async {
         match cli.command {
+            Commands::Config => interactive_config(),
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             requires_api_key => {
                 let config = config::read_config()?;
@@ -156,6 +161,7 @@ fn main() -> Result<()> {
                     Commands::Schema { usecase, recipe } => {
                         print_schema(&client, load_usecase(usecase), recipe).await
                     }
+                    Commands::Config => panic!("This state should be unreachable"),
                     Commands::SetApiKey { api_key: _ } => panic!("This state should be unreachable"),
                 }
             },
@@ -425,7 +431,7 @@ async fn parse_recipe_args(
 }
 
 async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -> Result<()> {
-    let parameters = if let Some(parameters_file) = run_args.paramters {
+    let parameters = if let Some(parameters_file) = run_args.parameters {
         let content = fs::read_to_string(&parameters_file)?;
         serde_json::from_str(&content).map_err(|e| {
             anyhow!(
@@ -459,6 +465,48 @@ async fn list_jobs(client: &AdaptiveClient, usecase: Option<String>) -> Result<(
     let response = client.list_jobs(usecase).await?;
 
     element!(JobsList(jobs: response)).print();
+
+    Ok(())
+}
+
+fn interactive_config() -> Result<()> {
+    println!("Welcome to adpt configuration!\n");
+
+    // Prompt for base URL
+    let base_url_str: String = Input::new()
+        .with_prompt("Adaptive Base URL")
+        .with_initial_text("https://app.adaptive.ml")
+        .interact_text()?;
+
+    let adaptive_base_url = Url::parse(&base_url_str).map_err(|e| anyhow!("Invalid URL: {}", e))?;
+
+    // Prompt for API key
+    let adaptive_api_key: String = Input::new().with_prompt("API Key").interact_text()?;
+
+    // Prompt for default use case (optional)
+    let default_use_case_str: String = Input::new()
+        .with_prompt("Default Use Case (optional, press Enter to skip)")
+        .allow_empty(true)
+        .interact_text()?;
+
+    let default_use_case = if default_use_case_str.is_empty() {
+        None
+    } else {
+        Some(default_use_case_str)
+    };
+
+    // Save API key to keyring
+    config::set_api_key_keyring(adaptive_api_key)?;
+
+    // Save config file
+    let config_file = config::ConfigFile {
+        adaptive_base_url: Some(adaptive_base_url),
+        default_use_case,
+    };
+
+    config::write_config(config_file)?;
+
+    println!("\n✓ Configuration complete!\n");
 
     Ok(())
 }
