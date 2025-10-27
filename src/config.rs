@@ -30,10 +30,14 @@ pub struct Config {
 fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> {
     let default_use_case = override_config.default_use_case.or(base.default_use_case);
 
-    let adaptive_base_url = override_config
+    let mut adaptive_base_url = override_config
         .adaptive_base_url
         .or(base.adaptive_base_url)
         .ok_or(anyhow!("No adaptive base URL provided"))?;
+
+    adaptive_base_url = adaptive_base_url
+        .join("/api/graphql")
+        .context("Failed to append /api/graphql to base URL")?;
 
     let adaptive_api_key = if let Some(api_key) = override_config.adaptive_api_key {
         api_key

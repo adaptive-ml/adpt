@@ -31,7 +31,7 @@ described in the configuration section below.
 To set up completions for zsh run the following:
 
 ```sh
-echo "source <(COMPLETE=zsh adpt)" >> ~/.zshrc
+echo -e "\nsource <(COMPLETE=zsh adpt)" >> ~/.zshrc
 ```
 
 Note that completions for things like recipe keys will only work when a default usecase is configured.
