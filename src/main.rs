@@ -102,7 +102,7 @@ enum Commands {
     Models {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
-        /// List all models regardless of use case
+        /// List all models in the global model registry
         #[arg(short, long)]
         all: bool,
     },
