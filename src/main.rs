@@ -122,35 +122,43 @@ fn main() -> Result<()> {
     let _rt_guard = rt.enter();
     clap_complete::CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
-    let config = config::read_config()?;
-    let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
-
-    let load_usecase = |maybe_usecase: Option<String>| {
-        maybe_usecase.or(config.default_use_case).expect(
-            "A usecase must be specified via the --usecase argument or a default usecase configured"
-        )
-    };
 
     rt.block_on(async {
         match cli.command {
-            Commands::Recipes { usecase } => list_recipes(&client, &load_usecase(usecase)).await,
-            Commands::Job { id, follow } => get_job(Arc::new(client), id, follow).await,
-            Commands::Publish {
-                usecase,
-                recipe,
-                name,
-                key,
-            } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
-            Commands::Run { usecase, args } => {
-                run_recipe(&client, &load_usecase(usecase), args).await
-            }
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
-            Commands::Jobs => list_jobs(&client, None).await,
-            Commands::Cancel { id } => cancel_job(&client, id).await,
-            Commands::Models { usecase } => list_models(&client, load_usecase(usecase)).await,
-            Commands::Schema { usecase, recipe } => {
-                print_schema(&client, load_usecase(usecase), recipe).await
-            }
+            requires_api_key => {
+                let config = config::read_config()?;
+                let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+
+                let load_usecase = |maybe_usecase: Option<String>| {
+                    maybe_usecase.or(config.default_use_case).expect(
+                        "A usecase must be specified via the --usecase argument or a default usecase configured"
+                    )
+                };
+
+                match requires_api_key {
+                    Commands::Recipes { usecase } => {
+                        list_recipes(&client, &load_usecase(usecase)).await
+                    }
+                    Commands::Job { id, follow } => get_job(Arc::new(client), id, follow).await,
+                    Commands::Publish {
+                        usecase,
+                        recipe,
+                        name,
+                        key,
+                    } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
+                    Commands::Run { usecase, args } => {
+                        run_recipe(&client, &load_usecase(usecase), args).await
+                    }
+                    Commands::Jobs => list_jobs(&client, None).await,
+                    Commands::Cancel { id } => cancel_job(&client, id).await,
+                    Commands::Models { usecase } => list_models(&client, load_usecase(usecase)).await,
+                    Commands::Schema { usecase, recipe } => {
+                        print_schema(&client, load_usecase(usecase), recipe).await
+                    }
+                    Commands::SetApiKey { api_key: _ } => panic!("This state should be unreachable"),
+                }
+            },
         }
     })
 }
