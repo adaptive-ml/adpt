@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use dotenvy::dotenv;
 use keyring::Entry;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use url::Url;
@@ -9,10 +9,10 @@ use url::Url;
 pub const KEYRING_SERVICE: &str = "adpt-api-key";
 pub const KEYRING_USER: &str = "Adaptive";
 
-#[derive(Debug, Deserialize, Default)]
-struct ConfigFile {
-    default_use_case: Option<String>,
-    adaptive_base_url: Option<Url>,
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct ConfigFile {
+    pub default_use_case: Option<String>,
+    pub adaptive_base_url: Option<Url>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -92,5 +92,20 @@ pub fn set_api_key_keyring(api_key: String) -> Result<()> {
     let entry = Entry::new(KEYRING_SERVICE, KEYRING_USER)?;
     entry.set_secret(api_key.as_bytes())?;
     println!("API key set for use with adpt");
+    Ok(())
+}
+
+pub fn write_config(config: ConfigFile) -> Result<()> {
+    let config_file_path = get_config_file_path()?;
+
+    // Create parent directories if they don't exist
+    if let Some(parent) = config_file_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let toml_string = toml::to_string_pretty(&config)?;
+    fs::write(&config_file_path, toml_string)?;
+
+    println!("\nConfiguration saved to {}", config_file_path.display());
     Ok(())
 }
