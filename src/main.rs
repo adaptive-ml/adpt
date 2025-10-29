@@ -368,7 +368,7 @@ async fn parse_recipe_args(
     let expected_args = schema
         .properties
         .iter()
-        .filter_map(|(name, value)| match value {
+        .map(|(name, value)| match value {
             JsonSchemaPropertyContents::Regular(regular_json_schema_property_contents) => {
                 let base = Arg::new(name)
                     .required(schema.required.contains(name))
@@ -376,16 +376,16 @@ async fn parse_recipe_args(
                     .long(name);
 
                 match regular_json_schema_property_contents.type_.as_str() {
-                    "integer" => Some(base.value_parser(value_parser!(i64))),
-                    "string" => Some(base.value_parser(value_parser!(String))),
-                    "boolean" => Some(base.value_parser(value_parser!(bool))),
-                    "number" => Some(base.value_parser(value_parser!(f64))),
-                    _ => None, //FIXME error in this case
+                    "integer" => Ok(base.value_parser(value_parser!(i64))),
+                    "string" => Ok(base.value_parser(value_parser!(String))),
+                    "boolean" => Ok(base.value_parser(value_parser!(bool))),
+                    "number" => Ok(base.value_parser(value_parser!(f64))),
+                    unknown => Err(anyhow!("Unknown type {unknown} specified in schema")),
                 }
             }
-            JsonSchemaPropertyContents::Union(_) => Some(Arg::new(name).required(true).long(name)),
+            JsonSchemaPropertyContents::Union(_) => Ok(Arg::new(name).required(true).long(name)),
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
 
     let command = Command::new(format!("adpt run {} --", recipe))
         .args(expected_args)
