@@ -98,7 +98,6 @@ pub fn set_api_key_keyring(api_key: String) -> Result<()> {
 pub fn write_config(config: ConfigFile) -> Result<()> {
     let config_file_path = get_config_file_path()?;
 
-    // Create parent directories if they don't exist
     if let Some(parent) = config_file_path.parent() {
         fs::create_dir_all(parent)?;
     }

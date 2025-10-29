@@ -32,6 +32,8 @@ mod json_schema;
 mod serde_utils;
 mod ui;
 
+const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
+
 #[derive(Parser)]
 #[command(name = "adpt")]
 #[command(version)]
@@ -553,7 +555,7 @@ fn interactive_config() -> Result<()> {
     let adaptive_base_url = loop {
         let base_url_str = read_input(
             "Adaptive Base URL",
-            Some("https://app.adaptive.ml"),
+            Some(DEFAULT_ADAPTIVE_BASE_URL),
             Some("The base URL for your Adaptive instance"),
         )?;
 
