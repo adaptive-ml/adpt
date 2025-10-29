@@ -1,0 +1,11 @@
+query ListAllModels {
+    models {
+        id
+        key
+        name
+        isTraining
+        online
+        error
+    }
+}
+

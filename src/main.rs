@@ -21,7 +21,7 @@ use zip_extensions::write::ZipWriterExtensions;
 
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
-    ui::{JobsList, ModelsList, RecipeList},
+    ui::{AllModelsList, JobsList, ModelsList, RecipeList},
 };
 
 mod client;
@@ -102,6 +102,9 @@ enum Commands {
     Models {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
+        /// List all models in the global model registry
+        #[arg(short, long)]
+        all: bool,
     },
     /// Store your API key in the OS keyring
     SetApiKey { api_key: String },
@@ -129,9 +132,10 @@ fn main() -> Result<()> {
             requires_api_key => {
                 let config = config::read_config()?;
                 let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+                let default_use_case = config.default_use_case.clone();
 
                 let load_usecase = |maybe_usecase: Option<String>| {
-                    maybe_usecase.or(config.default_use_case).expect(
+                    maybe_usecase.or(default_use_case.clone()).expect(
                         "A usecase must be specified via the --usecase argument or a default usecase configured"
                     )
                 };
@@ -152,7 +156,16 @@ fn main() -> Result<()> {
                     }
                     Commands::Jobs => list_jobs(&client, None).await,
                     Commands::Cancel { id } => cancel_job(&client, id).await,
-                    Commands::Models { usecase } => list_models(&client, load_usecase(usecase)).await,
+                    Commands::Models { usecase, all } => {
+                        if all {
+                            list_all_models(&client).await
+                        } else {
+                            match usecase.or(config.default_use_case) {
+                                Some(use_case) => list_models(&client, use_case).await,
+                                None => list_all_models(&client).await,
+                            }
+                        }
+                    }
                     Commands::Schema { usecase, recipe } => {
                         print_schema(&client, load_usecase(usecase), recipe).await
                     }
@@ -182,8 +195,14 @@ async fn print_schema(client: &AdaptiveClient, usecase: String, recipe: String) 
 }
 
 async fn list_models(client: &AdaptiveClient, usecase: String) -> Result<()> {
-    let models = client.list_models(usecase).await?;
-    element!(ModelsList(models: models)).print();
+    let model_services = client.list_models(usecase).await?;
+    element!(ModelsList(model_services: model_services)).print();
+    Ok(())
+}
+
+async fn list_all_models(client: &AdaptiveClient) -> Result<()> {
+    let models = client.list_all_models().await?;
+    element!(AllModelsList(models: models)).print();
     Ok(())
 }
 
