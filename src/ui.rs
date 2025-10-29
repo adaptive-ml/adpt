@@ -92,7 +92,6 @@ fn JobStatusIcon(props: &JobStatusIconProps) -> impl Into<AnyElement<'static>> {
     }
 }
 
-// Trait to unify model display across model services and models
 trait ModelDisplay {
     fn get_status(&self) -> String;
     fn get_id(&self) -> String;

@@ -160,8 +160,6 @@ fn main() -> Result<()> {
                         if all {
                             list_all_models(&client).await
                         } else {
-                            // If usecase is provided or default is configured, use it
-                            // Otherwise, list all models
                             match usecase.or(config.default_use_case) {
                                 Some(use_case) => list_models(&client, use_case).await,
                                 None => list_all_models(&client).await,
