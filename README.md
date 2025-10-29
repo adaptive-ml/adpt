@@ -127,7 +127,7 @@ Configuration files are stored in platform-specific locations:
 | Platform | Configuration File Path |
 |----------|------------------------|
 | **Linux** | `~/.config/adpt/config.toml` or `$XDG_CONFIG_HOME/adpt/config.toml` |
-| **macOS** | `~/Library/Application Support/com.adaptive-ml.adpt/config.toml` |
+| **macOS** | `~/.adpt/config.toml` |
 | **Windows** | `%APPDATA%\adaptive-ml\adpt\config\config.toml` |
 
 ### Configuration File Format
