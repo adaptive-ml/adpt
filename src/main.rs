@@ -3,12 +3,12 @@ use autumnus::{FormatterOption, Options, highlight, themes};
 use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use client::AdaptiveClient;
-use dialoguer::Input;
 use iocraft::prelude::*;
 use serde_json::{Map, Value};
 use slug::slugify;
 use std::{
     fs,
+    io::{self, Write},
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -488,36 +488,120 @@ async fn list_jobs(client: &AdaptiveClient, usecase: Option<String>) -> Result<(
     Ok(())
 }
 
+fn read_input(prompt: &str, default: Option<&str>, description: Option<&str>) -> Result<String> {
+    element! {
+        View(flex_direction: FlexDirection::Column, margin_bottom: 1) {
+            Text(
+                content: format!("{}:", prompt),
+                weight: Weight::Bold,
+                color: Color::Cyan
+            )
+            #(description.map(|desc| {
+                element! {
+                    Text(
+                        content: format!("  {}", desc),
+                        color: Color::DarkGrey
+                    )
+                }
+            }))
+            #(default.map(|def| {
+                element! {
+                    Text(
+                        content: format!("  [default: {}]", def),
+                        color: Color::DarkGrey
+                    )
+                }
+            }))
+        }
+    }
+    .print();
+
+    print!("> ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_string();
+
+    if input.is_empty() && default.is_some() {
+        Ok(default.unwrap().to_string())
+    } else {
+        Ok(input)
+    }
+}
+
 fn interactive_config() -> Result<()> {
-    println!("Welcome to adpt configuration!\n");
+    element! {
+        View(flex_direction: FlexDirection::Column, margin_bottom: 2) {
+            Text(
+                content: "⚙️  Configure adpt",
+                weight: Weight::Bold,
+                color: Color::Blue
+            )
+            Text(
+                content: "Set up your Adaptive CLI configuration",
+                color: Color::DarkGrey
+            )
+        }
+    }
+    .print();
 
-    // Prompt for base URL
-    let base_url_str: String = Input::new()
-        .with_prompt("Adaptive Base URL")
-        .with_initial_text("https://app.adaptive.ml")
-        .interact_text()?;
+    let adaptive_base_url = loop {
+        let base_url_str = read_input(
+            "Adaptive Base URL",
+            Some("https://app.adaptive.ml"),
+            Some("The base URL for your Adaptive instance"),
+        )?;
 
-    let adaptive_base_url = Url::parse(&base_url_str).map_err(|e| anyhow!("Invalid URL: {}", e))?;
+        match Url::parse(&base_url_str) {
+            Ok(url) => break url,
+            Err(e) => {
+                element! {
+                    Text(
+                        content: format!("✗ Invalid URL: {}", e),
+                        color: Color::Red
+                    )
+                }
+                .print();
+                println!();
+            }
+        }
+    };
 
-    // Prompt for API key
-    let adaptive_api_key: String = Input::new().with_prompt("API Key").interact_text()?;
+    let adaptive_api_key = loop {
+        let api_key = read_input(
+            "API Key",
+            None,
+            Some("Your Adaptive API key (stored securely in OS keyring)"),
+        )?;
 
-    // Prompt for default use case (optional)
-    let default_use_case_str: String = Input::new()
-        .with_prompt("Default Use Case (optional, press Enter to skip)")
-        .allow_empty(true)
-        .interact_text()?;
+        if api_key.is_empty() {
+            element! {
+                Text(
+                    content: "✗ API key cannot be empty",
+                    color: Color::Red
+                )
+            }
+            .print();
+            println!();
+        } else {
+            break api_key;
+        }
+    };
 
+    let default_use_case_str = read_input(
+        "Default Use Case",
+        None,
+        Some("Optional: Set a default use case to avoid specifying --usecase every time"),
+    )?;
     let default_use_case = if default_use_case_str.is_empty() {
         None
     } else {
         Some(default_use_case_str)
     };
 
-    // Save API key to keyring
     config::set_api_key_keyring(adaptive_api_key)?;
 
-    // Save config file
     let config_file = config::ConfigFile {
         adaptive_base_url: Some(adaptive_base_url),
         default_use_case,
@@ -525,7 +609,16 @@ fn interactive_config() -> Result<()> {
 
     config::write_config(config_file)?;
 
-    println!("\n✓ Configuration complete!\n");
+    element! {
+        View(margin_top: 1) {
+            Text(
+                content: "✓ Configuration complete!",
+                weight: Weight::Bold,
+                color: Color::Green
+            )
+        }
+    }
+    .print();
 
     Ok(())
 }

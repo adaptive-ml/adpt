@@ -10,7 +10,6 @@ anyhow = "1.0.100"
 autumnus = { version = "0.7.6", default-features = false, features = ["lang-json"] }
 clap = { version = "4.5.47", features = ["derive", "string"] }
 clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
-dialoguer = "0.11.0"
 directories = "6.0.0"
 dotenvy = "0.15.7"
 envy = "0.4.2"
