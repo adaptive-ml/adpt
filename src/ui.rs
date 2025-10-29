@@ -530,3 +530,92 @@ pub fn Spinner(props: &SpinnerProps, mut hooks: Hooks) -> impl Into<AnyElement<'
         Text(content: current_char, color: color)
     }
 }
+
+#[derive(Default, Props)]
+pub struct ConfigHeaderProps {}
+
+#[component]
+pub fn ConfigHeader(_props: &ConfigHeaderProps) -> impl Into<AnyElement<'static>> {
+    element! {
+        View(flex_direction: FlexDirection::Column, margin_bottom: 2) {
+            Text(
+                content: "⚙️  Configure adpt",
+                weight: Weight::Bold,
+                color: Color::Blue
+            )
+            Text(
+                content: "Set up your Adaptive CLI configuration",
+                color: Color::DarkGrey
+            )
+        }
+    }
+}
+
+#[derive(Default, Props)]
+pub struct InputPromptProps {
+    pub prompt: String,
+    pub default: Option<String>,
+    pub description: Option<String>,
+}
+
+#[component]
+pub fn InputPrompt(props: &InputPromptProps) -> impl Into<AnyElement<'static>> {
+    element! {
+        View(flex_direction: FlexDirection::Column, margin_bottom: 1) {
+            Text(
+                content: format!("{}:", props.prompt),
+                weight: Weight::Bold,
+                color: Color::Cyan
+            )
+            #(props.description.as_ref().map(|desc| {
+                element! {
+                    Text(
+                        content: format!("  {}", desc),
+                        color: Color::DarkGrey
+                    )
+                }
+            }))
+            #(props.default.as_ref().map(|def| {
+                element! {
+                    Text(
+                        content: format!("  [default: {}]", def),
+                        color: Color::DarkGrey
+                    )
+                }
+            }))
+        }
+    }
+}
+
+#[derive(Default, Props)]
+pub struct ErrorMessageProps {
+    pub message: String,
+}
+
+#[component]
+pub fn ErrorMessage(props: &ErrorMessageProps) -> impl Into<AnyElement<'static>> {
+    element! {
+        Text(
+            content: format!("✗ {}", props.message),
+            color: Color::Red
+        )
+    }
+}
+
+#[derive(Default, Props)]
+pub struct SuccessMessageProps {
+    pub message: String,
+}
+
+#[component]
+pub fn SuccessMessage(props: &SuccessMessageProps) -> impl Into<AnyElement<'static>> {
+    element! {
+        View(margin_top: 1) {
+            Text(
+                content: format!("✓ {}", props.message),
+                weight: Weight::Bold,
+                color: Color::Green
+            )
+        }
+    }
+}

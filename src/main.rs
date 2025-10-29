@@ -8,12 +8,14 @@ use serde_json::{Map, Value};
 use slug::slugify;
 use std::{
     fs,
+    io::{self, Write},
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
 };
 use tempfile::{NamedTempFile, TempPath};
 use tokio::runtime::Handle;
+use url::Url;
 use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
@@ -21,7 +23,10 @@ use zip_extensions::write::ZipWriterExtensions;
 
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
-    ui::{AllModelsList, JobsList, ModelsList, RecipeList},
+    ui::{
+        AllModelsList, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ModelsList, RecipeList,
+        SuccessMessage,
+    },
 };
 
 mod client;
@@ -29,6 +34,8 @@ mod config;
 mod json_schema;
 mod serde_utils;
 mod ui;
+
+const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
 
 #[derive(Parser)]
 #[command(name = "adpt")]
@@ -44,9 +51,9 @@ struct RunArgs {
     /// Recipe ID or key
     #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
     recipe: String,
-    /// A file containing a JSON object of paramters for the recipe
+    /// A file containing a JSON object of parameters for the recipe
     #[arg(short, long, value_hint = ValueHint::FilePath)]
-    paramters: Option<PathBuf>,
+    parameters: Option<PathBuf>,
     /// The name of the run
     #[arg(short, long)]
     name: Option<String>,
@@ -62,12 +69,26 @@ struct RunArgs {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run recipe
-    Run {
+    /// Cancel a job
+    Cancel { id: Uuid },
+    /// Configure adpt interactively
+    Config,
+    /// Inspect job
+    Job {
+        id: Uuid,
+        /// Follow job status updates until completion
+        #[arg(short, long)]
+        follow: bool,
+    },
+    /// List currently running jobs
+    Jobs,
+    /// List models
+    Models {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
-        #[command(flatten)]
-        args: RunArgs,
+        /// List all models in the global model registry
+        #[arg(short, long)]
+        all: bool,
     },
     /// Upload recipe
     Publish {
@@ -87,27 +108,13 @@ enum Commands {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
     },
-    /// Inspect job
-    Job {
-        id: Uuid,
-        /// Follow job status updates until completion
-        #[arg(short, long)]
-        follow: bool,
-    },
-    /// List currently running jobs
-    Jobs,
-    /// Cancel a job
-    Cancel { id: Uuid },
-    /// List models
-    Models {
+    /// Run recipe
+    Run {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
-        /// List all models in the global model registry
-        #[arg(short, long)]
-        all: bool,
+        #[command(flatten)]
+        args: RunArgs,
     },
-    /// Store your API key in the OS keyring
-    SetApiKey { api_key: String },
     /// Display the schema for inputs for a recipe
     Schema {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
@@ -115,6 +122,8 @@ enum Commands {
         #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
         recipe: String,
     },
+    /// Store your API key in the OS keyring
+    SetApiKey { api_key: String },
 }
 
 fn main() -> Result<()> {
@@ -128,6 +137,7 @@ fn main() -> Result<()> {
 
     rt.block_on(async {
         match cli.command {
+            Commands::Config => interactive_config(),
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             requires_api_key => {
                 let config = config::read_config()?;
@@ -169,6 +179,7 @@ fn main() -> Result<()> {
                     Commands::Schema { usecase, recipe } => {
                         print_schema(&client, load_usecase(usecase), recipe).await
                     }
+                    Commands::Config => panic!("This state should be unreachable"),
                     Commands::SetApiKey { api_key: _ } => panic!("This state should be unreachable"),
                 }
             },
@@ -444,7 +455,7 @@ async fn parse_recipe_args(
 }
 
 async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -> Result<()> {
-    let parameters = if let Some(parameters_file) = run_args.paramters {
+    let parameters = if let Some(parameters_file) = run_args.parameters {
         let content = fs::read_to_string(&parameters_file)?;
         serde_json::from_str(&content).map_err(|e| {
             anyhow!(
@@ -478,6 +489,93 @@ async fn list_jobs(client: &AdaptiveClient, usecase: Option<String>) -> Result<(
     let response = client.list_jobs(usecase).await?;
 
     element!(JobsList(jobs: response)).print();
+
+    Ok(())
+}
+
+fn read_input(prompt: &str, default: Option<&str>, description: Option<&str>) -> Result<String> {
+    element! {
+        InputPrompt(
+            prompt: prompt.to_string(),
+            default: default.map(|s| s.to_string()),
+            description: description.map(|s| s.to_string())
+        )
+    }
+    .print();
+
+    print!("> ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_string();
+
+    if input.is_empty() {
+        if let Some(def) = default {
+            Ok(def.to_string())
+        } else {
+            Ok(input)
+        }
+    } else {
+        Ok(input)
+    }
+}
+
+fn interactive_config() -> Result<()> {
+    element!(ConfigHeader()).print();
+
+    let adaptive_base_url = loop {
+        let base_url_str = read_input(
+            "Adaptive Base URL",
+            Some(DEFAULT_ADAPTIVE_BASE_URL),
+            Some("The base URL for your Adaptive instance"),
+        )?;
+
+        match Url::parse(&base_url_str) {
+            Ok(url) => break url,
+            Err(e) => {
+                element!(ErrorMessage(message: format!("Invalid URL: {}", e))).print();
+                println!();
+            }
+        }
+    };
+
+    let adaptive_api_key = loop {
+        let api_key = read_input(
+            "API Key",
+            None,
+            Some("Your Adaptive API key (stored securely in OS keyring)"),
+        )?;
+
+        if api_key.is_empty() {
+            element!(ErrorMessage(message: "API key cannot be empty".to_string())).print();
+            println!();
+        } else {
+            break api_key;
+        }
+    };
+
+    let default_use_case_str = read_input(
+        "Default Use Case",
+        None,
+        Some("Optional: Set a default use case to avoid specifying --usecase every time"),
+    )?;
+    let default_use_case = if default_use_case_str.is_empty() {
+        None
+    } else {
+        Some(default_use_case_str)
+    };
+
+    config::set_api_key_keyring(adaptive_api_key)?;
+
+    let config_file = config::ConfigFile {
+        adaptive_base_url: Some(adaptive_base_url),
+        default_use_case,
+    };
+
+    config::write_config(config_file)?;
+
+    element!(SuccessMessage(message: "Configuration complete!".to_string())).print();
 
     Ok(())
 }
