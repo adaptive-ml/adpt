@@ -523,8 +523,12 @@ fn read_input(prompt: &str, default: Option<&str>, description: Option<&str>) ->
     io::stdin().read_line(&mut input)?;
     let input = input.trim().to_string();
 
-    if input.is_empty() && default.is_some() {
-        Ok(default.unwrap().to_string())
+    if input.is_empty() {
+        if let Some(def) = default {
+            Ok(def.to_string())
+        } else {
+            Ok(input)
+        }
     } else {
         Ok(input)
     }
