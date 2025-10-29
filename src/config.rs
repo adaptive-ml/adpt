@@ -3,6 +3,7 @@ use dotenvy::dotenv;
 use keyring::Entry;
 use serde::Deserialize;
 use std::fs;
+use std::path::PathBuf;
 use url::Url;
 
 pub const KEYRING_SERVICE: &str = "adpt-api-key";
@@ -43,9 +44,10 @@ fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> 
         api_key
     } else {
         let entry = Entry::new(KEYRING_SERVICE, KEYRING_USER)?;
-        let api_key = entry
-            .get_secret()
-            .context("API key not specified via environment variable nor present in OS keyring")?;
+        let api_key = entry.get_secret().context(
+            "API key not specified via environment variable nor present in OS keyring.\n\
+            Use `adpt set-api-key <your-key>` to set it.",
+        )?;
         String::from_utf8(api_key)?
     };
 
@@ -56,13 +58,30 @@ fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> 
     })
 }
 
+fn get_config_file_path() -> Result<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var_os("HOME").ok_or(anyhow!("Unable to determine home directory"))?;
+        Ok(PathBuf::from(home)
+            .join(".config")
+            .join("adaptive-ml")
+            .join("adpt")
+            .join("config.toml"))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let project_dirs = directories::ProjectDirs::from("com", "adaptive-ml", "adpt")
+            .ok_or(anyhow!("Unable to determine home directory"))?;
+        Ok(project_dirs.config_dir().join("config.toml"))
+    }
+}
+
 pub fn read_config() -> Result<Config> {
     let _ = dotenv();
     let env_config = envy::from_env::<ConfigEnv>().unwrap_or_default();
 
-    let project_dirs = directories::ProjectDirs::from("com", "adaptive-ml", "adpt")
-        .ok_or(anyhow!("Unable to determine home directory"))?;
-    let config_file = project_dirs.config_dir().join("config.toml");
+    let config_file = get_config_file_path()?;
     let file_config = if let Ok(config) = fs::read_to_string(config_file) {
         toml::from_str(&config)?
     } else {
