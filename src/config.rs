@@ -61,12 +61,9 @@ fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> 
 fn get_config_file_path() -> Result<PathBuf> {
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var_os("HOME").ok_or(anyhow!("Unable to determine home directory"))?;
-        Ok(PathBuf::from(home)
-            .join(".config")
-            .join("adaptive-ml")
-            .join("adpt")
-            .join("config.toml"))
+        let base_dirs =
+            directories::BaseDirs::new().ok_or(anyhow!("Unable to determine home directory"))?;
+        Ok(base_dirs.home_dir().join(".adpt").join("config.toml"))
     }
 
     #[cfg(not(target_os = "macos"))]
