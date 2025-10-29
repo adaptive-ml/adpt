@@ -23,7 +23,10 @@ use zip_extensions::write::ZipWriterExtensions;
 
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
-    ui::{AllModelsList, JobsList, ModelsList, RecipeList},
+    ui::{
+        AllModelsList, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ModelsList, RecipeList,
+        SuccessMessage,
+    },
 };
 
 mod client;
@@ -492,29 +495,11 @@ async fn list_jobs(client: &AdaptiveClient, usecase: Option<String>) -> Result<(
 
 fn read_input(prompt: &str, default: Option<&str>, description: Option<&str>) -> Result<String> {
     element! {
-        View(flex_direction: FlexDirection::Column, margin_bottom: 1) {
-            Text(
-                content: format!("{}:", prompt),
-                weight: Weight::Bold,
-                color: Color::Cyan
-            )
-            #(description.map(|desc| {
-                element! {
-                    Text(
-                        content: format!("  {}", desc),
-                        color: Color::DarkGrey
-                    )
-                }
-            }))
-            #(default.map(|def| {
-                element! {
-                    Text(
-                        content: format!("  [default: {}]", def),
-                        color: Color::DarkGrey
-                    )
-                }
-            }))
-        }
+        InputPrompt(
+            prompt: prompt.to_string(),
+            default: default.map(|s| s.to_string()),
+            description: description.map(|s| s.to_string())
+        )
     }
     .print();
 
@@ -537,20 +522,7 @@ fn read_input(prompt: &str, default: Option<&str>, description: Option<&str>) ->
 }
 
 fn interactive_config() -> Result<()> {
-    element! {
-        View(flex_direction: FlexDirection::Column, margin_bottom: 2) {
-            Text(
-                content: "⚙️  Configure adpt",
-                weight: Weight::Bold,
-                color: Color::Blue
-            )
-            Text(
-                content: "Set up your Adaptive CLI configuration",
-                color: Color::DarkGrey
-            )
-        }
-    }
-    .print();
+    element!(ConfigHeader()).print();
 
     let adaptive_base_url = loop {
         let base_url_str = read_input(
@@ -562,13 +534,7 @@ fn interactive_config() -> Result<()> {
         match Url::parse(&base_url_str) {
             Ok(url) => break url,
             Err(e) => {
-                element! {
-                    Text(
-                        content: format!("✗ Invalid URL: {}", e),
-                        color: Color::Red
-                    )
-                }
-                .print();
+                element!(ErrorMessage(message: format!("Invalid URL: {}", e))).print();
                 println!();
             }
         }
@@ -582,13 +548,7 @@ fn interactive_config() -> Result<()> {
         )?;
 
         if api_key.is_empty() {
-            element! {
-                Text(
-                    content: "✗ API key cannot be empty",
-                    color: Color::Red
-                )
-            }
-            .print();
+            element!(ErrorMessage(message: "API key cannot be empty".to_string())).print();
             println!();
         } else {
             break api_key;
@@ -615,16 +575,7 @@ fn interactive_config() -> Result<()> {
 
     config::write_config(config_file)?;
 
-    element! {
-        View(margin_top: 1) {
-            Text(
-                content: "✓ Configuration complete!",
-                weight: Weight::Bold,
-                color: Color::Green
-            )
-        }
-    }
-    .print();
+    element!(SuccessMessage(message: "Configuration complete!".to_string())).print();
 
     Ok(())
 }
