@@ -1,6 +1,6 @@
 query ListModels($useCaseId: IdOrKey!) {
     useCase(idOrKey: $useCaseId) {
-        modelServices(filter: { kind: [Embedding, Generation] }) {
+        modelServices {
             id
             key
             name
@@ -32,7 +32,6 @@ fragment model on Model {
     id
     key
     name
-    kind
     inStorage
     isTraining
     online
