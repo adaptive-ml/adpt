@@ -14,7 +14,7 @@ directories = "6.0.0"
 dotenvy = "0.15.7"
 envy = "0.4.2"
 fancy-duration = "0.9.2"
-graphql_client = "0.14.0"
+graphql_client = "0.15.0"
 iocraft = "0.7.14"
 keyring = { version = "3.6.3", features = ["apple-native", "crypto-rust", "sync-secret-service"] }
 reqwest = { version = "0.12.23", default-features = false, features = ["json", "multipart", "rustls-tls", "stream"] }
