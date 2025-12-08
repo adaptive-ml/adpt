@@ -12,6 +12,7 @@
         "pin",
         "digest"
       ],
+      "matchCurrentVersion": "!/^0/",
       "automerge": true
     }
   ]
