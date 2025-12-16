@@ -108,6 +108,14 @@ pub struct PublishCustomRecipe;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "schema.gql",
+    query_path = "src/graphql/upload_dataset.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct UploadDataset;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.gql",
     query_path = "src/graphql/run.graphql",
     response_derives = "Debug, Clone"
 )]
@@ -201,6 +209,54 @@ impl AdaptiveClient {
         match response_data.job {
             Some(job) => Ok(job),
             None => Err(anyhow!("Job with ID '{}' not found", job_id)),
+        }
+    }
+
+    pub async fn upload_dataset<P: AsRef<Path>>(
+        &self,
+        usecase: &str,
+        name: &str,
+        dataset: P,
+    ) -> Result<upload_dataset::UploadDatasetCreateDataset> {
+        let variables = upload_dataset::Variables {
+            usecase: IdOrKey::from(usecase),
+            file: Upload(0),
+            name: Some(name.to_string()),
+        };
+
+        let operations = UploadDataset::build_query(variables);
+        let operations = serde_json::to_string(&operations)?;
+
+        let file_map = r#"{ "0": ["variables.file"] }"#;
+
+        let dataset_file = reqwest::multipart::Part::file(dataset)
+            .await
+            .context("Unable to read dataset")?;
+
+        let form = reqwest::multipart::Form::new()
+            .text("operations", operations)
+            .text("map", file_map)
+            .part("0", dataset_file);
+
+        let response = self
+            .client
+            .post(self.base_url.clone())
+            .bearer_auth(&self.auth_token)
+            .multipart(form)
+            .send()
+            .await?;
+
+        let response: Response<<UploadDataset as graphql_client::GraphQLQuery>::ResponseData> =
+            response.json().await?;
+
+        match response.data {
+            Some(data) => Ok(data.create_dataset),
+            None => {
+                if let Some(errors) = response.errors {
+                    bail!("GraphQL errors: {:?}", errors);
+                }
+                Err(anyhow!("No data returned from GraphQL mutation"))
+            }
         }
     }
 

@@ -90,6 +90,16 @@ enum Commands {
         #[arg(short, long)]
         all: bool,
     },
+    /// Upload dataset
+    Upload {
+        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
+        usecase: Option<String>,
+        #[arg(value_hint = ValueHint::AnyPath)]
+        dataset: PathBuf,
+        /// Dataset name
+        #[arg(short, long)]
+        name: Option<String>,
+    },
     /// Upload recipe
     Publish {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
@@ -152,39 +162,65 @@ fn main() -> Result<()> {
 
                 match requires_api_key {
                     Commands::Recipes { usecase } => {
-                        list_recipes(&client, &load_usecase(usecase)).await
-                    }
+                                        list_recipes(&client, &load_usecase(usecase)).await
+                                    }
                     Commands::Job { id, follow } => get_job(Arc::new(client), id, follow).await,
                     Commands::Publish {
-                        usecase,
-                        recipe,
-                        name,
-                        key,
-                    } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
+                                        usecase,
+                                        recipe,
+                                        name,
+                                        key,
+                                    } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
                     Commands::Run { usecase, args } => {
-                        run_recipe(&client, &load_usecase(usecase), args).await
-                    }
+                                        run_recipe(&client, &load_usecase(usecase), args).await
+                                    }
                     Commands::Jobs => list_jobs(&client, None).await,
                     Commands::Cancel { id } => cancel_job(&client, id).await,
                     Commands::Models { usecase, all } => {
-                        if all {
-                            list_all_models(&client).await
-                        } else {
-                            match usecase.or(config.default_use_case) {
-                                Some(use_case) => list_models(&client, use_case).await,
-                                None => list_all_models(&client).await,
-                            }
-                        }
-                    }
+                                        if all {
+                                            list_all_models(&client).await
+                                        } else {
+                                            match usecase.or(config.default_use_case) {
+                                                Some(use_case) => list_models(&client, use_case).await,
+                                                None => list_all_models(&client).await,
+                                            }
+                                        }
+                                    }
                     Commands::Schema { usecase, recipe } => {
-                        print_schema(&client, load_usecase(usecase), recipe).await
-                    }
+                                        print_schema(&client, load_usecase(usecase), recipe).await
+                                    }
                     Commands::Config => panic!("This state should be unreachable"),
                     Commands::SetApiKey { api_key: _ } => panic!("This state should be unreachable"),
+                    Commands::Upload { usecase, dataset, name } => upload_dataset(&client, &load_usecase(usecase), dataset, name).await,
                 }
             },
         }
     })
+}
+
+async fn upload_dataset<P: AsRef<Path>>(
+    client: &AdaptiveClient,
+    usecase: &str,
+    dataset: P,
+    name: Option<String>,
+) -> std::result::Result<(), anyhow::Error> {
+    let name = name.unwrap_or_else(|| {
+        let file_name = dataset.as_ref().file_name().unwrap().to_string_lossy();
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("SystemTime before UNIX EPOCH");
+        format!("{}-{}", file_name, now.as_secs())
+    });
+
+    let response = client.upload_dataset(usecase, &name, &dataset).await?;
+
+    println!(
+        "Dataset uploaded successfully with ID: {}, key: {}",
+        response.id,
+        response.key.unwrap_or("<none>".to_string())
+    );
+
+    Ok(())
 }
 
 async fn print_schema(client: &AdaptiveClient, usecase: String, recipe: String) -> Result<()> {
