@@ -34,7 +34,8 @@ To set up completions for zsh run the following:
 echo -e "\nsource <(COMPLETE=zsh adpt)" >> ~/.zshrc
 ```
 
-Note that completions for things like recipe keys will only work when a default usecase is configured.
+Note that completions for things like recipe keys will only work when a default
+usecase is configured.
 
 ## Usage
 
@@ -50,7 +51,6 @@ However to avoid specifying this every time, the `DEFAULT_USECASE` environment
 variable or the `default_usecase` configuration file option.:
 
 ### Setting API Key
-
 
 Store your API key in the system keyring:
 
@@ -100,6 +100,14 @@ List all available recipes:
 adpt recipes
 ```
 
+### Uploading datasets
+
+Upload a dataset:
+
+```sh
+adpt upload /path/to/dataset
+```
+
 ### Monitoring Jobs
 
 Get the status of a specific job:
@@ -124,11 +132,11 @@ Envionrment variables may be specified using a `.env` file in a parent folder.
 
 Configuration files are stored in platform-specific locations:
 
-| Platform | Configuration File Path |
-|----------|------------------------|
-| **Linux** | `~/.config/adpt/config.toml` or `$XDG_CONFIG_HOME/adpt/config.toml` |
-| **macOS** | `~/.adpt/config.toml` |
-| **Windows** | `%APPDATA%\adaptive-ml\adpt\config\config.toml` |
+| Platform    | Configuration File Path                                             |
+| ----------- | ------------------------------------------------------------------- |
+| **Linux**   | `~/.config/adpt/config.toml` or `$XDG_CONFIG_HOME/adpt/config.toml` |
+| **macOS**   | `~/.adpt/config.toml`                                               |
+| **Windows** | `%APPDATA%\adaptive-ml\adpt\config\config.toml`                     |
 
 ### Configuration File Format
 
