@@ -19,7 +19,9 @@ use url::Url;
 use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
-use zip_extensions::write::ZipWriterExtensions;
+use zip_extensions::{
+    default_entry_handler::DefaultEntryHandler, zip_writer_extensions::ZipWriterExtensions,
+};
 
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
@@ -250,10 +252,18 @@ async fn list_recipes(client: &AdaptiveClient, usecase: &str) -> Result<()> {
 fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P) -> Result<TempPath> {
     if recipe_dir.as_ref().join("main.py").is_file() {
         let tmp_file = NamedTempFile::new()?;
-        let zip_file = ZipWriter::new(&tmp_file);
-        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-        zip_file
-            .create_from_directory_with_options(&recipe_dir.as_ref().to_owned(), |_| options)?;
+
+        {
+            let mut zip_file = ZipWriter::new(&tmp_file);
+            let options =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+            zip_file.create_from_directory_with_options(
+                &recipe_dir.as_ref().to_owned(),
+                |_| options,
+                &DefaultEntryHandler,
+            )?;
+        }
+
         Ok(tmp_file.into_temp_path())
     } else {
         bail!("Recipe directory must contain a main.py file");
