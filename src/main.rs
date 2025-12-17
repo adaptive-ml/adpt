@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use autumnus::{FormatterOption, Options, highlight, themes};
 use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
@@ -32,6 +32,7 @@ use crate::{
 mod client;
 mod config;
 mod json_schema;
+mod rest_types;
 mod serde_utils;
 mod ui;
 
@@ -204,6 +205,10 @@ async fn upload_dataset<P: AsRef<Path>>(
     dataset: P,
     name: Option<String>,
 ) -> std::result::Result<(), anyhow::Error> {
+    let file_size = std::fs::metadata(dataset.as_ref())
+        .context("Failed to get file metadata")?
+        .len();
+
     let name = name.unwrap_or_else(|| {
         let file_name = dataset.as_ref().file_name().unwrap().to_string_lossy();
         let now = SystemTime::now()
@@ -212,13 +217,26 @@ async fn upload_dataset<P: AsRef<Path>>(
         format!("{}-{}", file_name, now.as_secs())
     });
 
-    let response = client.upload_dataset(usecase, &name, &dataset).await?;
+    if file_size > client::MIN_CHUNK_SIZE_BYTES {
+        let key = slugify(&name);
+        let response = client
+            .chunked_upload_dataset(usecase, &name, &key, &dataset)
+            .await?;
 
-    println!(
-        "Dataset uploaded successfully with ID: {}, key: {}",
-        response.id,
-        response.key.unwrap_or("<none>".to_string())
-    );
+        println!(
+            "Dataset uploaded successfully with ID: {}, key: {}",
+            response.id,
+            response.key.unwrap_or("<none>".to_string())
+        );
+    } else {
+        let response = client.upload_dataset(usecase, &name, &dataset).await?;
+
+        println!(
+            "Dataset uploaded successfully with ID: {}, key: {}",
+            response.id,
+            response.key.unwrap_or("<none>".to_string())
+        );
+    }
 
     Ok(())
 }
