@@ -60,10 +60,8 @@ pub fn calculate_upload_parts(file_size: u64) -> Result<(u64, u64)> {
     let mut total_parts = file_size.div_ceil(chunk_size);
 
     if total_parts > MAX_PARTS_COUNT {
-        // Calculate minimum chunk size needed to stay under max parts
         chunk_size = file_size.div_ceil(MAX_PARTS_COUNT);
 
-        // Check if we exceed max chunk size
         if chunk_size > MAX_CHUNK_SIZE_BYTES {
             let max_file_size = MAX_CHUNK_SIZE_BYTES * MAX_PARTS_COUNT;
             bail!(
@@ -564,14 +562,13 @@ impl AdaptiveClient {
         data: Vec<u8>,
         progress_tx: mpsc::Sender<u64>,
     ) -> Result<()> {
-        const SUB_CHUNK_SIZE: usize = 64 * 1024; // 64KB sub-chunks for progress updates
+        const SUB_CHUNK_SIZE: usize = 64 * 1024;
 
         let url = self
             .rest_base_url
             .join(UPLOAD_PART_ROUTE)
             .context("Failed to construct upload part URL")?;
 
-        // Create a stream that yields sub-chunks and reports progress
         let chunks: Vec<Vec<u8>> = data
             .chunks(SUB_CHUNK_SIZE)
             .map(|chunk| chunk.to_vec())
@@ -580,7 +577,6 @@ impl AdaptiveClient {
         let stream = futures::stream::iter(chunks).map(move |chunk| {
             let len = chunk.len() as u64;
             let tx = progress_tx.clone();
-            // Fire and forget - don't block on send
             let _ = tx.try_send(len);
             Ok::<_, std::io::Error>(chunk)
         });
