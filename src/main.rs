@@ -229,7 +229,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
             while let Some(event) = stream.next().await {
                 match event? {
                     UploadEvent::Progress(p) => {
-                        let percent = (p.parts_uploaded as f32 / p.total_parts as f32) * 100.0;
+                        let percent = (p.bytes_uploaded as f32 / p.total_bytes as f32) * 100.0;
                         let _ = tx.send(percent);
                     }
                     UploadEvent::Complete(r) => {
