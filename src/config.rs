@@ -37,8 +37,8 @@ fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> 
         .ok_or(anyhow!("No adaptive base URL provided"))?;
 
     adaptive_base_url = adaptive_base_url
-        .join("/api/graphql")
-        .context("Failed to append /api/graphql to base URL")?;
+        .join("/api/")
+        .context("Failed to append /api to base URL")?;
 
     let adaptive_api_key = if let Some(api_key) = override_config.adaptive_api_key {
         api_key

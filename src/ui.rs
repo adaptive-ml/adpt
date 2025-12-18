@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use fancy_duration::AsFancyDuration;
 use iocraft::prelude::*;
+use tokio::sync::watch::Receiver;
 use uuid::Uuid;
 
 use crate::client::get_job::JobStatusOutput;
@@ -14,6 +15,41 @@ use crate::client::{
     get_custom_recipes::GetCustomRecipesCustomRecipes,
     get_job::{GetJobJobStages, GetJobJobStagesInfo},
 };
+
+#[derive(Default, Props)]
+pub struct ProgressBarProps {
+    pub title: String,
+    pub progress: Option<Receiver<f32>>,
+}
+
+#[component]
+pub fn ProgressBar(mut hooks: Hooks, props: &ProgressBarProps) -> impl Into<AnyElement<'static>> {
+    let mut progress = hooks.use_state::<f32, _>(|| 0.0);
+    let mut recv = props.progress.clone().unwrap();
+
+    hooks.use_future(async move {
+        loop {
+            if recv.changed().await.is_ok() {
+                let new_value = *recv.borrow();
+                progress.set(new_value);
+            } else {
+                break;
+            }
+        }
+    });
+
+    element! {
+        View {
+            Text(content: props.title.clone())
+            View(margin_left: 1, margin_right: 1, border_style: BorderStyle::Single, border_edges: Edges::Left | Edges::Right, border_color: Color::Blue, width: 60) {
+                View(width: Percent(progress.get()), height: 1, background_color: Color::Green)
+            }
+            View() {
+                Text(content: format!("{:.0}%", progress))
+            }
+        }
+    }
+}
 
 #[derive(Default, Props)]
 pub struct RecipeListProps {
