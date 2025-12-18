@@ -102,13 +102,12 @@ trait ModelDisplay {
 impl ModelDisplay for ListModelsUseCaseModelServices {
     fn get_status(&self) -> String {
         match self.status {
-            list_models::ModelserviceStatus::PENDING => "Pending".to_string(),
-            list_models::ModelserviceStatus::ONLINE => "Online".to_string(),
-            list_models::ModelserviceStatus::OFFLINE => "Offline".to_string(),
-            list_models::ModelserviceStatus::DETACHED => "Detached".to_string(),
-            list_models::ModelserviceStatus::TURNED_OFF => "Turned Off".to_string(),
-            list_models::ModelserviceStatus::ERROR => "Error".to_string(),
-            list_models::ModelserviceStatus::Other(ref other) => other.to_owned(),
+            list_models::ModelServiceStatus::PENDING => "Pending".to_string(),
+            list_models::ModelServiceStatus::ONLINE => "Online".to_string(),
+            list_models::ModelServiceStatus::OFFLINE => "Offline".to_string(),
+            list_models::ModelServiceStatus::TURNED_OFF => "Turned Off".to_string(),
+            list_models::ModelServiceStatus::ERROR => "Error".to_string(),
+            list_models::ModelServiceStatus::Other(ref other) => other.to_owned(),
         }
     }
 

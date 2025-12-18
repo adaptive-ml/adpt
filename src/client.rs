@@ -316,6 +316,7 @@ impl AdaptiveClient {
                 after,
                 before: None,
                 last: None,
+                offset: None,
             }),
         };
 
