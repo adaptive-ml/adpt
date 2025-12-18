@@ -100,6 +100,14 @@ List all available recipes:
 adpt recipes
 ```
 
+### Uploading datasets
+
+Upload a dataset:
+
+```sh
+adpt upload /path/to/dataset
+```
+
 ### Monitoring Jobs
 
 Get the status of a specific job:

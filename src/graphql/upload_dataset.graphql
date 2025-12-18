@@ -1,0 +1,6 @@
+mutation UploadDataset($file: Upload!, $name: String, $usecase: IdOrKey!) {
+    createDataset(input: { name: $name, useCase: $usecase }, file: $file) {
+        id
+        key
+    }
+}
