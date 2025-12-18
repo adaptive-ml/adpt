@@ -1,6 +1,5 @@
 mutation CreateDatasetFromMultipart($input: DatasetCreateFromMultipartUpload!) {
     createDatasetFromMultipartUpload(input: $input) {
-        id
-        key
+        datasetId
     }
 }

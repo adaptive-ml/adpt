@@ -2,7 +2,8 @@ use anyhow::{Context, Result, anyhow, bail};
 use autumnus::{FormatterOption, Options, highlight, themes};
 use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
-use client::AdaptiveClient;
+use client::{AdaptiveClient, UploadEvent};
+use futures::StreamExt;
 use iocraft::prelude::*;
 use serde_json::{Map, Value};
 use slug::slugify;
@@ -14,7 +15,7 @@ use std::{
     time::SystemTime,
 };
 use tempfile::{NamedTempFile, TempPath};
-use tokio::runtime::Handle;
+use tokio::{runtime::Handle, sync::watch};
 use url::Url;
 use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
@@ -24,8 +25,8 @@ use zip_extensions::write::ZipWriterExtensions;
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
     ui::{
-        AllModelsList, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ModelsList, RecipeList,
-        SuccessMessage,
+        AllModelsList, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ModelsList, ProgressBar,
+        RecipeList, SuccessMessage,
     },
 };
 
@@ -199,7 +200,7 @@ fn main() -> Result<()> {
     })
 }
 
-async fn upload_dataset<P: AsRef<Path>>(
+async fn upload_dataset<P: AsRef<Path> + Sync>(
     client: &AdaptiveClient,
     usecase: &str,
     dataset: P,
@@ -219,14 +220,39 @@ async fn upload_dataset<P: AsRef<Path>>(
 
     if file_size > client::MIN_CHUNK_SIZE_BYTES {
         let key = slugify(&name);
-        let response = client
-            .chunked_upload_dataset(usecase, &name, &key, &dataset)
-            .await?;
+        let mut stream = client.chunked_upload_dataset(usecase, &name, &key, &dataset)?;
+
+        let (tx, rx) = watch::channel(0.0);
+
+        let process_stream = async {
+            let mut response = None;
+            while let Some(event) = stream.next().await {
+                match event? {
+                    UploadEvent::Progress(p) => {
+                        let percent = (p.parts_uploaded as f32 / p.total_parts as f32) * 100.0;
+                        let _ = tx.send(percent);
+                    }
+                    UploadEvent::Complete(r) => {
+                        response = Some(r);
+                        break;
+                    }
+                }
+            }
+            Ok::<_, anyhow::Error>(response.expect("Stream ended without Complete event"))
+        };
+
+        let mut progress_bar = element!(ProgressBar(progress: Some(rx)));
+
+        let response = tokio::select! {
+            result = process_stream => result?,
+            _ = progress_bar.render_loop() => {
+                unreachable!("render_loop should not terminate")
+            }
+        };
 
         println!(
-            "Dataset uploaded successfully with ID: {}, key: {}",
-            response.id,
-            response.key.unwrap_or("<none>".to_string())
+            "Dataset uploaded successfully with ID: {}",
+            response.dataset_id,
         );
     } else {
         let response = client.upload_dataset(usecase, &name, &dataset).await?;

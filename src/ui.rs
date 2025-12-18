@@ -22,14 +22,18 @@ pub struct ProgressBarProps {
 }
 
 #[component]
-fn ProgressBar(mut hooks: Hooks, props: &ProgressBarProps) -> impl Into<AnyElement<'static>> {
+pub fn ProgressBar(mut hooks: Hooks, props: &ProgressBarProps) -> impl Into<AnyElement<'static>> {
     let mut progress = hooks.use_state::<f32, _>(|| 0.0);
     let mut recv = props.progress.clone().unwrap();
 
     hooks.use_future(async move {
         loop {
-            let new_value = recv.borrow_and_update();
-            progress.set(*new_value);
+            if recv.changed().await.is_ok() {
+                let new_value = *recv.borrow();
+                progress.set(new_value);
+            } else {
+                break;
+            }
         }
     });
 

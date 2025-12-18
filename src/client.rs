@@ -1,5 +1,7 @@
 use std::{fmt::Display, fs::File, io::Read, path::Path, time::SystemTime};
 
+use futures::stream::BoxStream;
+
 use anyhow::{Context, Result, anyhow, bail};
 use graphql_client::{GraphQLQuery, Response};
 use reqwest::Client;
@@ -21,6 +23,20 @@ const MAX_PARTS_COUNT: u64 = 10000;
 const SIZE_500MB: u64 = 500 * MEGABYTE;
 const SIZE_10GB: u64 = 10 * 1024 * MEGABYTE;
 const SIZE_50GB: u64 = 50 * 1024 * MEGABYTE;
+
+#[derive(Clone, Debug, Default)]
+pub struct ChunkedUploadProgress {
+    pub parts_uploaded: u64,
+    pub total_parts: u64,
+}
+
+#[derive(Debug)]
+pub enum UploadEvent {
+    Progress(ChunkedUploadProgress),
+    Complete(
+        create_dataset_from_multipart::CreateDatasetFromMultipartCreateDatasetFromMultipartUpload,
+    ),
+}
 
 pub fn calculate_upload_parts(file_size: u64) -> Result<(u64, u64)> {
     if file_size < MIN_CHUNK_SIZE_BYTES {
@@ -527,10 +543,6 @@ impl AdaptiveClient {
             total_parts_count: total_parts,
         };
 
-        dbg!(&request);
-        println!("{}", &url);
-        dbg!(&url);
-
         let response = self
             .client
             .post(url)
@@ -628,54 +640,67 @@ impl AdaptiveClient {
         Ok(response_data.create_dataset_from_multipart_upload)
     }
 
-    pub async fn chunked_upload_dataset<P: AsRef<Path>>(
-        &self,
-        usecase: &str,
-        name: &str,
-        key: &str,
+    pub fn chunked_upload_dataset<'a, P: AsRef<Path> + Send + 'a>(
+        &'a self,
+        usecase: &'a str,
+        name: &'a str,
+        key: &'a str,
         dataset: P,
-    ) -> Result<
-        create_dataset_from_multipart::CreateDatasetFromMultipartCreateDatasetFromMultipartUpload,
-    > {
+    ) -> Result<BoxStream<'a, Result<UploadEvent>>> {
         let file_size = std::fs::metadata(dataset.as_ref())
             .context("Failed to get file metadata")?
             .len();
 
         let (total_parts, chunk_size) = calculate_upload_parts(file_size)?;
 
-        let session_id = self.init_chunked_upload(total_parts).await?;
+        let stream = async_stream::try_stream! {
+            yield UploadEvent::Progress(ChunkedUploadProgress {
+                parts_uploaded: 0,
+                total_parts,
+            });
 
-        let upload_result = async {
-            let mut file = File::open(dataset.as_ref()).context("Failed to open dataset file")?;
+            let session_id = self.init_chunked_upload(total_parts).await?;
+
+            let mut file =
+                File::open(dataset.as_ref()).context("Failed to open dataset file")?;
             let mut buffer = vec![0u8; chunk_size as usize];
+            let mut upload_error: Option<anyhow::Error> = None;
 
             for part_number in 1..=total_parts {
                 let bytes_read = file.read(&mut buffer).context("Failed to read chunk")?;
                 let chunk_data = buffer[..bytes_read].to_vec();
 
-                println!("Uploading part {part_number}");
-                self.upload_part(&session_id, part_number, chunk_data)
-                    .await?;
+                if let Err(e) = self.upload_part(&session_id, part_number, chunk_data).await {
+                    upload_error = Some(e);
+                    break;
+                }
+
+                yield UploadEvent::Progress(ChunkedUploadProgress {
+                    parts_uploaded: part_number,
+                    total_parts,
+                });
             }
 
-            Ok::<(), anyhow::Error>(())
-        }
-        .await;
+            if let Some(e) = upload_error {
+                let _ = self.abort_chunked_upload(&session_id).await;
+                Err(e)?;
+            }
 
-        if let Err(e) = upload_result {
-            let _ = self.abort_chunked_upload(&session_id).await;
-            return Err(e);
-        }
+            let create_result = self
+                .create_dataset_from_multipart(usecase, name, key, &session_id)
+                .await;
 
-        let create_result = self
-            .create_dataset_from_multipart(usecase, name, key, &session_id)
-            .await;
+            match create_result {
+                Ok(response) => {
+                    yield UploadEvent::Complete(response);
+                }
+                Err(e) => {
+                    let _ = self.abort_chunked_upload(&session_id).await;
+                    Err(anyhow!("Failed to create dataset: {}", e))?;
+                }
+            }
+        };
 
-        if let Err(e) = &create_result {
-            let _ = self.abort_chunked_upload(&session_id).await;
-            return Err(anyhow!("Failed to create dataset: {}", e));
-        }
-
-        create_result
+        Ok(Box::pin(stream))
     }
 }
