@@ -223,9 +223,9 @@ pub struct ListComputePools;
 )]
 pub struct GetRecipe;
 
-const INIT_CHUNKED_UPLOAD_ROUTE: &str = "/api/v1/upload/init";
-const UPLOAD_PART_ROUTE: &str = "/api/v1/upload/part";
-const ABORT_CHUNKED_UPLOAD_ROUTE: &str = "/api/v1/upload/abort";
+const INIT_CHUNKED_UPLOAD_ROUTE: &str = "/v1/upload/init";
+const UPLOAD_PART_ROUTE: &str = "/v1/upload/part";
+const ABORT_CHUNKED_UPLOAD_ROUTE: &str = "/v1/upload/abort";
 
 pub struct AdaptiveClient {
     client: Client,
@@ -235,22 +235,15 @@ pub struct AdaptiveClient {
 }
 
 impl AdaptiveClient {
-    pub fn new(graphql_url: Url, auth_token: String) -> Self {
-        //FIXME does this make sense?
-        // Derive REST base URL from GraphQL URL by removing /api/graphql suffix
-        let rest_base_url = {
-            let mut url = graphql_url.clone();
-            let path = url.path().to_string();
-            if let Some(stripped) = path.strip_suffix("/api/graphql") {
-                url.set_path(stripped);
-            }
-            url
-        };
+    pub fn new(api_base_url: Url, auth_token: String) -> Self {
+        let graphql_url = api_base_url
+            .join("/graphql")
+            .expect("Failed to append /api/graphql to base URL");
 
         Self {
             client: Client::new(),
             graphql_url,
-            rest_base_url,
+            rest_base_url: api_base_url,
             auth_token,
         }
     }
