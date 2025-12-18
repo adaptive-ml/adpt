@@ -4,7 +4,6 @@ query ListModels($useCaseId: IdOrKey!) {
             id
             key
             name
-            attached
             desiredOnline
             isDefault
             status
