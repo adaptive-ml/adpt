@@ -1,20 +1,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use adaptive_client_rust::get_custom_recipes::GetCustomRecipesCustomRecipes;
+use adaptive_client_rust::get_job::{GetJobJobStages, GetJobJobStagesInfo, JobStatusOutput};
+use adaptive_client_rust::list_all_models::{self, ListAllModelsModels};
+use adaptive_client_rust::list_jobs::{self, ListJobsJobsNodes};
+use adaptive_client_rust::list_models::{self, ListModelsUseCaseModelServices};
+use adaptive_client_rust::{AdaptiveClient, get_job};
 use fancy_duration::AsFancyDuration;
 use iocraft::prelude::*;
 use tokio::sync::watch::Receiver;
 use uuid::Uuid;
-
-use crate::client::get_job::JobStatusOutput;
-use crate::client::list_all_models::{self, ListAllModelsModels};
-use crate::client::list_jobs::{self, ListJobsJobsNodes};
-use crate::client::list_models::{self, ListModelsUseCaseModelServices};
-use crate::client::{AdaptiveClient, get_job};
-use crate::client::{
-    get_custom_recipes::GetCustomRecipesCustomRecipes,
-    get_job::{GetJobJobStages, GetJobJobStagesInfo},
-};
 
 #[derive(Default, Props)]
 pub struct ProgressBarProps {

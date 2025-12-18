@@ -1,8 +1,0 @@
-mutation RunCustomRecipe($input: JobInput!) {
-    createJob(input: $input) {
-        id
-        kind
-        status
-        createdAt
-    }
-}

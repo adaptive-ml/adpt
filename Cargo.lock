@@ -3,6 +3,24 @@
 version = 4
 
 [[package]]
+name = "adaptive-client-rust"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07abb2176e0c4279f518df87494654f60a2822aba7456a3497793f527f469741"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "futures",
+ "graphql_client",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12,6 +30,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 name = "adpt"
 version = "0.4.0"
 dependencies = [
+ "adaptive-client-rust",
  "anyhow",
  "async-stream",
  "autumnus",
