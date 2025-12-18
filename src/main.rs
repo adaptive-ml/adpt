@@ -241,7 +241,8 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
             Ok::<_, anyhow::Error>(response.expect("Stream ended without Complete event"))
         };
 
-        let mut progress_bar = element!(ProgressBar(progress: Some(rx)));
+        let mut progress_bar =
+            element!(ProgressBar(title: "Uploading Dataset".to_string(), progress: Some(rx)));
 
         let response = tokio::select! {
             result = process_stream => result?,

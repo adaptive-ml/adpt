@@ -18,6 +18,7 @@ use crate::client::{
 
 #[derive(Default, Props)]
 pub struct ProgressBarProps {
+    pub title: String,
     pub progress: Option<Receiver<f32>>,
 }
 
@@ -39,10 +40,11 @@ pub fn ProgressBar(mut hooks: Hooks, props: &ProgressBarProps) -> impl Into<AnyE
 
     element! {
         View {
-            View(border_style: BorderStyle::Round, border_color: Color::Blue, width: 60) {
+            Text(content: props.title.clone())
+            View(margin_left: 1, margin_right: 1, border_style: BorderStyle::Single, border_edges: Edges::Left | Edges::Right, border_color: Color::Blue, width: 60) {
                 View(width: Percent(progress.get()), height: 1, background_color: Color::Green)
             }
-            View(padding: 1) {
+            View() {
                 Text(content: format!("{:.0}%", progress))
             }
         }
