@@ -1,8 +1,0 @@
-query ListComputePools {
-    computePools {
-        id
-        key
-        name
-        capabilities
-    }
-}

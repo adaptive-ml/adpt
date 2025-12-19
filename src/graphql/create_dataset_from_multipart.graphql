@@ -1,5 +1,0 @@
-mutation CreateDatasetFromMultipart($input: DatasetCreateFromMultipartUpload!) {
-    createDatasetFromMultipartUpload(input: $input) {
-        datasetId
-    }
-}

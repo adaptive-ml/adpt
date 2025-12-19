@@ -1,7 +1,0 @@
-query ListUseCases {
-    useCases {
-        id
-        key
-        name
-    }
-}

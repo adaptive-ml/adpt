@@ -1,8 +1,8 @@
+use adaptive_client_rust::{AdaptiveClient, UploadEvent};
 use anyhow::{Context, Result, anyhow, bail};
 use autumnus::{FormatterOption, Options, highlight, themes};
 use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
-use client::{AdaptiveClient, UploadEvent};
 use futures::StreamExt;
 use iocraft::prelude::*;
 use serde_json::{Map, Value};
@@ -32,11 +32,8 @@ use crate::{
     },
 };
 
-mod client;
 mod config;
 mod json_schema;
-mod rest_types;
-mod serde_utils;
 mod ui;
 
 const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
@@ -220,7 +217,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         format!("{}-{}", file_name, now.as_secs())
     });
 
-    if file_size > client::MIN_CHUNK_SIZE_BYTES {
+    if file_size > adaptive_client_rust::MIN_CHUNK_SIZE_BYTES {
         let key = slugify(&name);
         let mut stream = client.chunked_upload_dataset(usecase, &name, &key, &dataset)?;
 
