@@ -4,17 +4,17 @@ version = 4
 
 [[package]]
 name = "adaptive-client-rust"
-version = "0.1.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07abb2176e0c4279f518df87494654f60a2822aba7456a3497793f527f469741"
+checksum = "43232975b79db9bc83204053a0910df838c8d2d718e9120ece335ced8bff37d2"
 dependencies = [
- "anyhow",
  "async-stream",
  "futures",
  "graphql_client",
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror 2.0.17",
  "tokio",
  "url",
  "uuid",
@@ -1966,7 +1966,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
