@@ -111,3 +111,14 @@ jobs:
           homebrew-tap: adaptive-ml/homebrew-tap
         env:
           COMMITTER_TOKEN: ${{ secrets.FORMULA_UPDATE_PAT }}
+
+  publish_winget:
+    name: Publish to WinGet
+    runs-on: windows-latest
+    needs: build_release
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: AdaptiveML.adpt
+          token: ${{ secrets.WINGET_TOKEN }}
