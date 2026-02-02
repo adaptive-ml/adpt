@@ -10,7 +10,7 @@ adaptive-client-rust = "0.3.0"
 anyhow = "1.0.100"
 async-stream = "0.3"
 futures = "0.3"
-autumnus = { version = "0.7.6", default-features = false, features = ["lang-json"] }
+autumnus = { version = "0.9.0", default-features = false, features = ["lang-json"] }
 clap = { version = "4.5.47", features = ["derive", "string"] }
 clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
 directories = "6.0.0"
