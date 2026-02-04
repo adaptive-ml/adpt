@@ -8,21 +8,23 @@ use iocraft::prelude::*;
 use serde_json::{Map, Value};
 use slug::slugify;
 use std::{
+    env,
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
 };
-use tempfile::{NamedTempFile, TempPath};
+use tempfile::{NamedTempFile, TempPath, tempdir};
 use tokio::{runtime::Handle, sync::watch};
 use url::Url;
 use uuid::Uuid;
+use walkdir::WalkDir;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
-use zip_extensions::{
-    default_entry_handler::DefaultEntryHandler, zip_writer_extensions::ZipWriterExtensions,
-};
+use crate::pyproject::{PyProject, should_ignore};
+
+// Note: zip_extensions is no longer used but kept in Cargo.toml for potential future use
 
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
@@ -34,6 +36,7 @@ use crate::{
 
 mod config;
 mod json_schema;
+mod pyproject;
 mod ui;
 
 const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
@@ -105,14 +108,21 @@ enum Commands {
     Publish {
         #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
         usecase: Option<String>,
+        /// Path to recipe file/directory, or recipe name from pyproject.toml
         #[arg(value_hint = ValueHint::AnyPath)]
-        recipe: PathBuf,
-        /// Recipe name
+        recipe: String,
+        /// Recipe name (display name)
         #[arg(short, long)]
         name: Option<String>,
         /// Recipe key
         #[arg(short, long)]
         key: Option<String>,
+        /// Publish all recipes defined in pyproject.toml
+        #[arg(long)]
+        all: bool,
+        /// List available recipes from pyproject.toml
+        #[arg(long)]
+        list: bool,
     },
     /// List recipes
     Recipes {
@@ -171,7 +181,9 @@ fn main() -> Result<()> {
                                         recipe,
                                         name,
                                         key,
-                                    } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
+                                        all,
+                                        list,
+                                    } => publish_recipe_cmd(&client, usecase, default_use_case.clone(), name, key, recipe, all, list).await,
                     Commands::Run { usecase, args } => {
                                         run_recipe(&client, &load_usecase(usecase), args).await
                                     }
@@ -327,57 +339,319 @@ async fn list_recipes(client: &AdaptiveClient, usecase: &str) -> Result<()> {
     Ok(())
 }
 
-fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P) -> Result<TempPath> {
-    if recipe_dir.as_ref().join("main.py").is_file() {
-        let tmp_file = NamedTempFile::new()?;
+/// Prepare a recipe directory for upload by copying to temp dir with filtering
+fn prepare_recipe_dir(
+    source_dir: &Path,
+    recipe_path: Option<&str>,
+    ignore_files: &[String],
+    ignore_extensions: &[String],
+) -> Result<tempfile::TempDir> {
+    let temp_dir = tempdir()?;
+    let dest_dir = temp_dir.path();
 
-        {
-            let mut zip_file = ZipWriter::new(&tmp_file);
-            let options =
-                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-            zip_file.create_from_directory_with_options(
-                &recipe_dir.as_ref().to_owned(),
-                |_| options,
-                &DefaultEntryHandler,
-            )?;
+    // Walk the source directory and copy files, respecting ignore patterns
+    for entry in WalkDir::new(source_dir) {
+        let entry = entry?;
+        let path = entry.path();
+        let relative = path.strip_prefix(source_dir)?;
+
+        // Skip if any component of the path should be ignored
+        let should_skip = relative.components().any(|c| {
+            let component_path = Path::new(c.as_os_str());
+            should_ignore(component_path, ignore_files, ignore_extensions)
+        });
+
+        if should_skip {
+            continue;
         }
 
-        Ok(tmp_file.into_temp_path())
-    } else {
-        bail!("Recipe directory must contain a main.py file");
+        let dest_path = dest_dir.join(relative);
+
+        if path.is_dir() {
+            fs::create_dir_all(&dest_path)?;
+        } else if path.is_file() {
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(path, &dest_path)?;
+        }
     }
+
+    // If recipe_path is specified, copy it to main.py
+    if let Some(rp) = recipe_path {
+        let recipe_file = source_dir.join(rp);
+        if !recipe_file.exists() {
+            bail!("Recipe file not found: {}", recipe_file.display());
+        }
+        let main_py = dest_dir.join("main.py");
+        fs::copy(&recipe_file, &main_py)?;
+        println!("Copied {} to main.py", rp);
+    }
+
+    // Clean up pyproject.toml for server deployment
+    let pyproject_path = dest_dir.join("pyproject.toml");
+    if pyproject_path.exists() {
+        let content = fs::read_to_string(&pyproject_path)?;
+        if let Ok(mut doc) = content.parse::<toml::Table>() {
+            let mut modified = false;
+
+            // Remove [tool.uv] section (sources and index) - server has its own config
+            if let Some(tool) = doc.get_mut("tool").and_then(|t| t.as_table_mut()) {
+                if tool.remove("uv").is_some() {
+                    println!("Removed [tool.uv] from pyproject.toml");
+                    modified = true;
+                }
+            }
+
+            if modified {
+                let new_content = toml::to_string_pretty(&doc)?;
+                fs::write(&pyproject_path, new_content)?;
+            }
+        }
+    }
+
+    // Verify main.py exists
+    if !dest_dir.join("main.py").exists() {
+        bail!(
+            "Recipe directory must contain a main.py file (or specify recipe-path in pyproject.toml)"
+        );
+    }
+
+    Ok(temp_dir)
 }
 
-async fn publish_recipe<P: AsRef<Path>>(
+fn zip_recipe_dir(recipe_dir: &Path) -> Result<TempPath> {
+    let tmp_file = NamedTempFile::new()?;
+
+    {
+        let mut zip = ZipWriter::new(&tmp_file);
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+
+        for entry in WalkDir::new(recipe_dir) {
+            let entry = entry?;
+            let path = entry.path();
+            let relative = path.strip_prefix(recipe_dir)?;
+
+            if relative.as_os_str().is_empty() {
+                continue;
+            }
+
+            if path.is_file() {
+                zip.start_file(relative.to_string_lossy(), options)?;
+                let content = fs::read(path)?;
+                std::io::Write::write_all(&mut zip, &content)?;
+            } else if path.is_dir() {
+                zip.add_directory(relative.to_string_lossy(), options)?;
+            }
+        }
+
+        zip.finish()?;
+    }
+
+    Ok(tmp_file.into_temp_path())
+}
+
+async fn publish_single_recipe(
     client: &AdaptiveClient,
     usecase: &str,
     name: Option<String>,
     key: Option<String>,
-    recipe: P,
+    source_dir: &Path,
+    recipe_path: Option<&str>,
+    ignore_files: &[String],
+    ignore_extensions: &[String],
 ) -> Result<()> {
+    // Prepare the recipe directory
+    let temp_dir = prepare_recipe_dir(source_dir, recipe_path, ignore_files, ignore_extensions)?;
+
+    // Generate name and key
     let name = name.unwrap_or_else(|| {
-        let file_name = recipe.as_ref().file_name().unwrap().to_string_lossy();
+        let dir_name = source_dir.file_name().unwrap().to_string_lossy();
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("SystemTime before UNIX EPOCH");
-        format!("{}-{}", file_name, now.as_secs())
+        format!("{}-{}", dir_name, now.as_secs())
     });
     let key = key.unwrap_or_else(|| slugify(&name));
 
-    let response = if recipe.as_ref().is_dir() {
-        let recipe = zip_recipe_dir(recipe)?;
-        client.publish_recipe(usecase, &name, &key, &recipe).await?
-    } else {
-        client.publish_recipe(usecase, &name, &key, recipe).await?
-    };
+    // Zip and upload
+    let zip_path = zip_recipe_dir(temp_dir.path())?;
+
+    let response = client
+        .publish_recipe(usecase, &name, &key, &zip_path)
+        .await?;
 
     println!(
         "Recipe published successfully with ID: {}, key: {}",
         response.id,
-        response.key.unwrap_or("<none>".to_string())
+        response.key.unwrap_or_else(|| "<none>".to_string())
     );
 
     Ok(())
+}
+
+async fn publish_recipe_cmd(
+    client: &AdaptiveClient,
+    usecase: Option<String>,
+    default_use_case: Option<String>,
+    name: Option<String>,
+    key: Option<String>,
+    recipe: String,
+    all: bool,
+    list: bool,
+) -> Result<()> {
+    let cwd = env::current_dir()?;
+    let pyproject = PyProject::load(&cwd)?;
+
+    // Handle --list flag
+    if list {
+        match &pyproject {
+            Some(pp) => {
+                let recipes = pp.list_recipes();
+                if recipes.is_empty() {
+                    println!("No recipes found in pyproject.toml");
+                } else {
+                    println!("Available recipes:");
+                    for (name, cfg) in recipes {
+                        let key = cfg.recipe_key.as_deref().unwrap_or("(no recipe-key)");
+                        let uc = cfg
+                            .use_case
+                            .as_ref()
+                            .or(pp.adaptive_config().and_then(|c| c.use_case.as_ref()))
+                            .map(|s| s.as_str())
+                            .unwrap_or("(no use-case)");
+                        println!("  - {}: {} ({})", name, key, uc);
+                    }
+                }
+            }
+            None => println!("No pyproject.toml found in current directory"),
+        }
+        return Ok(());
+    }
+
+    // Get ignore patterns from pyproject.toml
+    let (ignore_files, ignore_extensions) = pyproject
+        .as_ref()
+        .and_then(|pp| pp.adaptive_config())
+        .map(|c| (c.ignore_files.clone(), c.ignore_extensions.clone()))
+        .unwrap_or_default();
+
+    // Handle --all flag
+    if all {
+        let pp = pyproject.as_ref().ok_or_else(|| {
+            anyhow!("No pyproject.toml found in current directory")
+        })?;
+        let recipes = pp.list_recipes();
+        if recipes.is_empty() {
+            bail!("No recipes found in pyproject.toml");
+        }
+
+        let recipe_count = recipes.len();
+        println!("Publishing {} recipe(s)...\n", recipe_count);
+        for (recipe_name, cfg) in recipes {
+            let recipe_key = cfg
+                .recipe_key
+                .as_ref()
+                .ok_or_else(|| anyhow!("recipe-key not defined for recipe '{}'", recipe_name))?;
+
+            let uc = cfg
+                .use_case
+                .as_ref()
+                .or(pp.adaptive_config().and_then(|c| c.use_case.as_ref()))
+                .or(usecase.as_ref())
+                .or(default_use_case.as_ref())
+                .ok_or_else(|| anyhow!("use-case not defined for recipe '{}'", recipe_name))?;
+
+            println!("Publishing recipe: {} (key: {}, use-case: {})", recipe_name, recipe_key, uc);
+            publish_single_recipe(
+                client,
+                uc,
+                Some(recipe_name.clone()),
+                Some(recipe_key.clone()),
+                &cwd,
+                cfg.recipe_path.as_deref(),
+                &ignore_files,
+                &ignore_extensions,
+            )
+            .await?;
+            println!();
+        }
+        println!("Successfully published {} recipe(s)!", recipe_count);
+        return Ok(());
+    }
+
+    // Check if recipe is a name from pyproject.toml
+    if let Some(pp) = &pyproject {
+        if let Some(cfg) = pp.get_recipe(&recipe) {
+            let recipe_key = cfg
+                .recipe_key
+                .as_ref()
+                .or(key.as_ref())
+                .ok_or_else(|| anyhow!("recipe-key not defined for recipe '{}'", recipe))?;
+
+            let uc = cfg
+                .use_case
+                .as_ref()
+                .or(pp.adaptive_config().and_then(|c| c.use_case.as_ref()))
+                .or(usecase.as_ref())
+                .or(default_use_case.as_ref())
+                .ok_or_else(|| anyhow!("use-case not defined for recipe '{}'", recipe))?;
+
+            println!(
+                "Publishing recipe: {} (key: {}, use-case: {})",
+                recipe, recipe_key, uc
+            );
+            return publish_single_recipe(
+                client,
+                uc,
+                name.or(Some(recipe.clone())),
+                Some(recipe_key.clone()),
+                &cwd,
+                cfg.recipe_path.as_deref(),
+                &ignore_files,
+                &ignore_extensions,
+            )
+            .await;
+        }
+    }
+
+    // Fall back to treating recipe as a path
+    let recipe_path = PathBuf::from(&recipe);
+    if !recipe_path.exists() {
+        bail!(
+            "Recipe '{}' not found as a pyproject.toml recipe name or file path",
+            recipe
+        );
+    }
+
+    let uc = usecase
+        .or(default_use_case)
+        .ok_or_else(|| anyhow!("A usecase must be specified via --usecase or configured as default"))?;
+
+    if recipe_path.is_dir() {
+        publish_single_recipe(
+            client,
+            &uc,
+            name,
+            key,
+            &recipe_path,
+            None,
+            &ignore_files,
+            &ignore_extensions,
+        )
+        .await
+    } else {
+        // Single file - upload directly
+        let response = client
+            .publish_recipe(&uc, &name.unwrap_or(recipe.clone()), &key.unwrap_or_else(|| slugify(&recipe)), &recipe_path)
+            .await?;
+        println!(
+            "Recipe published successfully with ID: {}, key: {}",
+            response.id,
+            response.key.unwrap_or_else(|| "<none>".to_string())
+        );
+        Ok(())
+    }
 }
 
 fn recipe_key_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {

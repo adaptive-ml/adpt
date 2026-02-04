@@ -53,6 +53,7 @@ dependencies = [
  "toml",
  "url",
  "uuid",
+ "walkdir",
  "zip",
  "zip-extensions",
 ]
