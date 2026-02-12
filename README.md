@@ -4,14 +4,26 @@ A command line tool for interacting with the Adaptive Platform.
 
 ## Installation
 
-```sh
-cargo install adpt
-```
+### MacOS
 
-Or on ARM-based macs brew can be used:
+On ARM-based macs brew can be used:
 
 ```sh
 brew install adaptive-ml/homebrew-tap/adpt
+```
+
+### Windows
+
+On x86-based Windows winget can be used:
+
+```powershell
+winget install --source winget AdaptiveML.adpt
+```
+
+### Everything else
+
+```sh
+cargo install adpt
 ```
 
 Once installed an API key must be specified for use. This can be done using the
@@ -19,7 +31,7 @@ Once installed an API key must be specified for use. This can be done using the
 operating system's keyring using the below command:
 
 ```sh
-adpt set-apt-key
+adpt set-api-key
 ```
 
 Additionally your adaptive instance may be specified either via the
