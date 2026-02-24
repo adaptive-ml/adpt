@@ -59,7 +59,7 @@ Most commands require a `--project` option to specify the project:
 adpt recipes --project my-project
 ```
 
-However to avoid specifying this every time, the `DEFAULT_USE_CASE` environment
+However to avoid specifying this every time, the `DEFAULT_PROJECT` environment
 variable or the `default_project` configuration file option.:
 
 ### Setting API Key
@@ -138,7 +138,7 @@ adpt job <job-id> --follow
 
 ### Env file
 
-Envionrment variables may be specified using a `.env` file in a parent folder.
+Environment variables may be specified using a `.env` file in a parent folder.
 
 ### Configuration File Locations
 
