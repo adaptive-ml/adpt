@@ -85,16 +85,16 @@ enum Commands {
     Jobs,
     /// List models
     Models {
-        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
-        usecase: Option<String>,
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
         /// List all models in the global model registry
         #[arg(short, long)]
         all: bool,
     },
     /// Upload dataset
     Upload {
-        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
-        usecase: Option<String>,
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
         #[arg(value_hint = ValueHint::AnyPath)]
         dataset: PathBuf,
         /// Dataset name
@@ -103,8 +103,8 @@ enum Commands {
     },
     /// Upload recipe
     Publish {
-        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
-        usecase: Option<String>,
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
         #[arg(value_hint = ValueHint::AnyPath)]
         recipe: PathBuf,
         /// Recipe name
@@ -116,20 +116,20 @@ enum Commands {
     },
     /// List recipes
     Recipes {
-        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
-        usecase: Option<String>,
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
     },
     /// Run recipe
     Run {
-        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
-        usecase: Option<String>,
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
         #[command(flatten)]
         args: RunArgs,
     },
     /// Display the schema for inputs for a recipe
     Schema {
-        #[arg(short, long, add = ArgValueCompleter::new(usecase_completer))]
-        usecase: Option<String>,
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
         #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
         recipe: String,
     },
@@ -153,46 +153,46 @@ fn main() -> Result<()> {
             requires_api_key => {
                 let config = config::read_config()?;
                 let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
-                let default_use_case = config.default_use_case.clone();
+                let default_project = config.default_project.clone();
 
-                let load_usecase = |maybe_usecase: Option<String>| {
-                    maybe_usecase.or(default_use_case.clone()).expect(
-                        "A usecase must be specified via the --usecase argument or a default usecase configured"
+                let load_project = |maybe_project: Option<String>| {
+                    maybe_project.or(default_project.clone()).expect(
+                        "A project must be specified via the --project argument or a default project configured"
                     )
                 };
 
                 match requires_api_key {
-                    Commands::Recipes { usecase } => {
-                                        list_recipes(&client, &load_usecase(usecase)).await
+                    Commands::Recipes { project } => {
+                                        list_recipes(&client, &load_project(project)).await
                                     }
                     Commands::Job { id, follow } => get_job(Arc::new(client), id, follow).await,
                     Commands::Publish {
-                                        usecase,
+                                        project,
                                         recipe,
                                         name,
                                         key,
-                                    } => publish_recipe(&client, &load_usecase(usecase), name, key, recipe).await,
-                    Commands::Run { usecase, args } => {
-                                        run_recipe(&client, &load_usecase(usecase), args).await
+                                    } => publish_recipe(&client, &load_project(project), name, key, recipe).await,
+                    Commands::Run { project, args } => {
+                                        run_recipe(&client, &load_project(project), args).await
                                     }
                     Commands::Jobs => list_jobs(&client, None).await,
                     Commands::Cancel { id } => cancel_job(&client, id).await,
-                    Commands::Models { usecase, all } => {
+                    Commands::Models { project, all } => {
                                         if all {
                                             list_all_models(&client).await
                                         } else {
-                                            match usecase.or(config.default_use_case) {
-                                                Some(use_case) => list_models(&client, use_case).await,
+                                            match project.or(config.default_project) {
+                                                Some(project) => list_models(&client, project).await,
                                                 None => list_all_models(&client).await,
                                             }
                                         }
                                     }
-                    Commands::Schema { usecase, recipe } => {
-                                        print_schema(&client, load_usecase(usecase), recipe).await
+                    Commands::Schema { project, recipe } => {
+                                        print_schema(&client, load_project(project), recipe).await
                                     }
                     Commands::Config => panic!("This state should be unreachable"),
                     Commands::SetApiKey { api_key: _ } => panic!("This state should be unreachable"),
-                    Commands::Upload { usecase, dataset, name } => upload_dataset(&client, &load_usecase(usecase), dataset, name).await,
+                    Commands::Upload { project, dataset, name } => upload_dataset(&client, &load_project(project), dataset, name).await,
                 }
             },
         }
@@ -201,7 +201,7 @@ fn main() -> Result<()> {
 
 async fn upload_dataset<P: AsRef<Path> + Sync>(
     client: &AdaptiveClient,
-    usecase: &str,
+    project: &str,
     dataset: P,
     name: Option<String>,
 ) -> std::result::Result<(), anyhow::Error> {
@@ -219,7 +219,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
 
     if file_size > adaptive_client_rust::MIN_CHUNK_SIZE_BYTES {
         let key = slugify(&name);
-        let mut stream = client.chunked_upload_dataset(usecase, &name, &key, &dataset)?;
+        let mut stream = client.chunked_upload_dataset(project, &name, &key, &dataset)?;
 
         let (tx, rx) = watch::channel(0.0);
 
@@ -255,7 +255,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
             response.dataset_id,
         );
     } else {
-        let response = client.upload_dataset(usecase, &name, &dataset).await?;
+        let response = client.upload_dataset(project, &name, &dataset).await?;
 
         println!(
             "Dataset uploaded successfully with ID: {}, key: {}",
@@ -267,9 +267,9 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
     Ok(())
 }
 
-async fn print_schema(client: &AdaptiveClient, usecase: String, recipe: String) -> Result<()> {
+async fn print_schema(client: &AdaptiveClient, project: String, recipe: String) -> Result<()> {
     let recipe = client
-        .get_recipe(usecase, recipe)
+        .get_recipe(project, recipe)
         .await?
         .ok_or_else(|| anyhow!("Recipe not found"))?;
     let output = highlight(
@@ -285,8 +285,8 @@ async fn print_schema(client: &AdaptiveClient, usecase: String, recipe: String) 
     Ok(())
 }
 
-async fn list_models(client: &AdaptiveClient, usecase: String) -> Result<()> {
-    let model_services = client.list_models(usecase).await?;
+async fn list_models(client: &AdaptiveClient, project: String) -> Result<()> {
+    let model_services = client.list_models(project).await?;
     element!(ModelsList(model_services: model_services)).print();
     Ok(())
 }
@@ -319,8 +319,8 @@ async fn get_job(client: Arc<AdaptiveClient>, job_id: Uuid, follow: bool) -> Res
     Ok(())
 }
 
-async fn list_recipes(client: &AdaptiveClient, usecase: &str) -> Result<()> {
-    let recipes = client.list_recipes(usecase).await?;
+async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
+    let recipes = client.list_recipes(project).await?;
 
     element!(RecipeList(recipes: recipes)).print();
 
@@ -350,7 +350,7 @@ fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P) -> Result<TempPath> {
 
 async fn publish_recipe<P: AsRef<Path>>(
     client: &AdaptiveClient,
-    usecase: &str,
+    project: &str,
     name: Option<String>,
     key: Option<String>,
     recipe: P,
@@ -366,9 +366,9 @@ async fn publish_recipe<P: AsRef<Path>>(
 
     let response = if recipe.as_ref().is_dir() {
         let recipe = zip_recipe_dir(recipe)?;
-        client.publish_recipe(usecase, &name, &key, &recipe).await?
+        client.publish_recipe(project, &name, &key, &recipe).await?
     } else {
-        client.publish_recipe(usecase, &name, &key, recipe).await?
+        client.publish_recipe(project, &name, &key, recipe).await?
     };
 
     println!(
@@ -392,7 +392,7 @@ fn recipe_key_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 
     let handle = Handle::current();
     let recipes = handle
-        .block_on(client.list_recipes(&config.default_use_case.expect("No default usecase set")))
+        .block_on(client.list_recipes(&config.default_project.expect("No default project set")))
         .unwrap();
 
     recipes.into_iter().for_each(|recipe| {
@@ -406,7 +406,7 @@ fn recipe_key_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     completions
 }
 
-fn usecase_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+fn project_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     let mut completions = vec![];
     let Some(current) = current.to_str() else {
         return completions;
@@ -417,11 +417,11 @@ fn usecase_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
 
     let handle = Handle::current();
-    let usecases = handle.block_on(client.list_usecases()).unwrap();
+    let projects = handle.block_on(client.list_projects()).unwrap();
 
-    usecases.into_iter().for_each(|usecase| {
-        if usecase.key.starts_with(current) {
-            completions.push(CompletionCandidate::new(usecase.key));
+    projects.into_iter().for_each(|project| {
+        if project.key.starts_with(current) {
+            completions.push(CompletionCandidate::new(project.key));
         }
     });
 
@@ -452,12 +452,12 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 
 async fn parse_recipe_args(
     client: &AdaptiveClient,
-    usecase: &str,
+    project: &str,
     recipe: String,
     args: Vec<String>,
 ) -> Result<Map<String, Value>> {
     let recipe_contents = client
-        .get_recipe(usecase.to_string(), recipe.clone())
+        .get_recipe(project.to_string(), recipe.clone())
         .await?
         .ok_or_else(|| anyhow!("Recipe not found"))?;
     let schema = recipe_contents.json_schema;
@@ -542,7 +542,7 @@ async fn parse_recipe_args(
     Ok(parameters)
 }
 
-async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -> Result<()> {
+async fn run_recipe(client: &AdaptiveClient, project: &str, run_args: RunArgs) -> Result<()> {
     let parameters = if let Some(parameters_file) = run_args.parameters {
         let content = fs::read_to_string(&parameters_file)?;
         serde_json::from_str(&content).map_err(|e| {
@@ -554,17 +554,18 @@ async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -
     } else if run_args.recipe.is_empty() {
         Map::new()
     } else {
-        parse_recipe_args(client, usecase, run_args.recipe.clone(), run_args.args).await?
+        parse_recipe_args(client, project, run_args.recipe.clone(), run_args.args).await?
     };
 
     let response = client
         .run_recipe(
-            usecase,
+            project,
             &run_args.recipe.to_string(),
             parameters,
             run_args.name,
             run_args.compute_pool,
             run_args.gpus.unwrap_or(1),
+            false,
         )
         .await?;
 
@@ -573,8 +574,8 @@ async fn run_recipe(client: &AdaptiveClient, usecase: &str, run_args: RunArgs) -
     Ok(())
 }
 
-async fn list_jobs(client: &AdaptiveClient, usecase: Option<String>) -> Result<()> {
-    let response = client.list_jobs(usecase).await?;
+async fn list_jobs(client: &AdaptiveClient, project: Option<String>) -> Result<()> {
+    let response = client.list_jobs(project).await?;
 
     element!(JobsList(jobs: response)).print();
 
@@ -643,22 +644,22 @@ fn interactive_config() -> Result<()> {
         }
     };
 
-    let default_use_case_str = read_input(
+    let default_project_str = read_input(
         "Default Use Case",
         None,
-        Some("Optional: Set a default use case to avoid specifying --usecase every time"),
+        Some("Optional: Set a default project to avoid specifying --project every time"),
     )?;
-    let default_use_case = if default_use_case_str.is_empty() {
+    let default_project = if default_project_str.is_empty() {
         None
     } else {
-        Some(default_use_case_str)
+        Some(default_project_str)
     };
 
     config::set_api_key_keyring(adaptive_api_key)?;
 
     let config_file = config::ConfigFile {
         adaptive_base_url: Some(adaptive_base_url),
-        default_use_case,
+        default_project,
     };
 
     config::write_config(config_file)?;

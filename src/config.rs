@@ -11,25 +11,25 @@ pub const KEYRING_USER: &str = "Adaptive";
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct ConfigFile {
-    pub default_use_case: Option<String>,
+    pub default_project: Option<String>,
     pub adaptive_base_url: Option<Url>,
 }
 
 #[derive(Debug, Deserialize, Default)]
 struct ConfigEnv {
-    default_use_case: Option<String>,
+    default_project: Option<String>,
     adaptive_base_url: Option<Url>,
     adaptive_api_key: Option<String>,
 }
 
 pub struct Config {
-    pub default_use_case: Option<String>,
+    pub default_project: Option<String>,
     pub adaptive_base_url: Url,
     pub adaptive_api_key: String,
 }
 
 fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> {
-    let default_use_case = override_config.default_use_case.or(base.default_use_case);
+    let default_project = override_config.default_project.or(base.default_project);
 
     let mut adaptive_base_url = override_config
         .adaptive_base_url
@@ -52,7 +52,7 @@ fn merge_config(base: ConfigFile, override_config: ConfigEnv) -> Result<Config> 
     };
 
     Ok(Config {
-        default_use_case,
+        default_project,
         adaptive_base_url,
         adaptive_api_key,
     })

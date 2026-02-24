@@ -5,7 +5,7 @@ use adaptive_client_rust::get_custom_recipes::GetCustomRecipesCustomRecipes;
 use adaptive_client_rust::get_job::{GetJobJobStages, GetJobJobStagesInfo, JobStatusOutput};
 use adaptive_client_rust::list_all_models::{self, ListAllModelsModels};
 use adaptive_client_rust::list_jobs::{self, ListJobsJobsNodes};
-use adaptive_client_rust::list_models::{self, ListModelsUseCaseModelServices};
+use adaptive_client_rust::list_models::{self, ListModelsProjectModelServices};
 use adaptive_client_rust::{AdaptiveClient, get_job};
 use fancy_duration::AsFancyDuration;
 use iocraft::prelude::*;
@@ -131,7 +131,7 @@ trait ModelDisplay {
     fn get_key(&self) -> &str;
 }
 
-impl ModelDisplay for ListModelsUseCaseModelServices {
+impl ModelDisplay for ListModelsProjectModelServices {
     fn get_status(&self) -> String {
         match self.status {
             list_models::ModelServiceStatus::PENDING => "Pending".to_string(),
@@ -250,7 +250,7 @@ fn render_models_table<T: ModelDisplay + Clone>(models: &[T]) -> impl Into<AnyEl
 
 #[derive(Default, Props)]
 pub struct ModelsListProps {
-    pub model_services: Vec<ListModelsUseCaseModelServices>,
+    pub model_services: Vec<ListModelsProjectModelServices>,
 }
 
 #[component]

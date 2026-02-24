@@ -47,20 +47,20 @@ echo -e "\nsource <(COMPLETE=zsh adpt)" >> ~/.zshrc
 ```
 
 Note that completions for things like recipe keys will only work when a default
-usecase is configured.
+project is configured.
 
 ## Usage
 
-### Specifying the use case
+### Specifying the project
 
-Most commands require a `--usecase` option to specify the use case:
+Most commands require a `--project` option to specify the project:
 
 ```sh
-adpt recipes --usecase my-usecase
+adpt recipes --project my-project
 ```
 
 However to avoid specifying this every time, the `DEFAULT_USE_CASE` environment
-variable or the `default_use_case` configuration file option.:
+variable or the `default_project` configuration file option.:
 
 ### Setting API Key
 
@@ -155,8 +155,8 @@ Configuration files are stored in platform-specific locations:
 The configuration file uses TOML format and supports the following options:
 
 ```toml
-# Default use case for operations
-default_use_case = "my-usecase"
+# Default project for operations
+default_project = "my-project"
 
 # Base URL for the Adaptive platform
 adaptive_base_url = "https://your-adaptive-instance.com"
