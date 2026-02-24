@@ -21,7 +21,7 @@ use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 use zip_extensions::{
-    default_entry_handler::DefaultEntryHandler, zip_writer_extensions::ZipWriterExtensions,
+    zip_ignore_entry_handler::ZipIgnoreEntryHandler, zip_writer_extensions::ZipWriterExtensions,
 };
 
 use crate::{
@@ -338,7 +338,7 @@ fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P) -> Result<TempPath> {
             zip_file.create_from_directory_with_options(
                 &recipe_dir.as_ref().to_owned(),
                 |_| options,
-                &DefaultEntryHandler,
+                &ZipIgnoreEntryHandler::new(),
             )?;
         }
 
