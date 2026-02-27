@@ -140,6 +140,40 @@ enum Commands {
     SetApiKey { api_key: String },
 }
 
+impl Commands {
+    fn name(&self) -> &'static str {
+        match self {
+            Commands::Cancel { .. } => "cancel",
+            Commands::Config => "config",
+            Commands::Job { .. } => "job",
+            Commands::Jobs => "jobs",
+            Commands::Models { .. } => "models",
+            Commands::Upload { .. } => "upload",
+            Commands::Publish { .. } => "publish",
+            Commands::Recipes { .. } => "recipes",
+            Commands::Run { .. } => "run",
+            Commands::Schema { .. } => "schema",
+            Commands::SetApiKey { .. } => "set-api-key",
+        }
+    }
+}
+
+struct TerminalTitleGuard;
+
+impl TerminalTitleGuard {
+    fn new(command: &Commands) -> Self {
+        let title = format!("adpt - {}", command.name());
+        let _ = crossterm::execute!(std::io::stdout(), crossterm::terminal::SetTitle(title));
+        Self
+    }
+}
+
+impl Drop for TerminalTitleGuard {
+    fn drop(&mut self) {
+        let _ = crossterm::execute!(std::io::stdout(), crossterm::terminal::SetTitle(""));
+    }
+}
+
 fn main() -> Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -148,6 +182,7 @@ fn main() -> Result<()> {
     let _rt_guard = rt.enter();
     clap_complete::CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
+    let _title_guard = TerminalTitleGuard::new(&cli.command);
 
     rt.block_on(async {
         match cli.command {

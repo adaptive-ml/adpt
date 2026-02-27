@@ -36,6 +36,7 @@ dependencies = [
  "autumnus",
  "clap",
  "clap_complete",
+ "crossterm",
  "directories",
  "dotenvy",
  "envy",
