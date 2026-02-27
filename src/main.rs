@@ -184,6 +184,11 @@ fn send_notification(message: &str) {
     );
 }
 
+fn set_progress(progress: termwiz::escape::osc::Progress) {
+    use termwiz::escape::osc::OperatingSystemCommand;
+    print!("{}", OperatingSystemCommand::ConEmuProgress(progress));
+}
+
 fn main() -> Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -270,6 +275,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         let key = slugify(&name);
         let mut stream = client.chunked_upload_dataset(project, &name, &key, &dataset)?;
 
+        set_progress(termwiz::escape::osc::Progress::SetPercentage(0));
         let (tx, rx) = watch::channel(0.0);
 
         let process_stream = async {
@@ -279,6 +285,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
                     UploadEvent::Progress(p) => {
                         let percent = (p.bytes_uploaded as f32 / p.total_bytes as f32) * 100.0;
                         let _ = tx.send(percent);
+                        set_progress(termwiz::escape::osc::Progress::SetPercentage(percent as u8));
                     }
                     UploadEvent::Complete(r) => {
                         response = Some(r);
@@ -299,6 +306,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
             }
         };
 
+        set_progress(termwiz::escape::osc::Progress::None);
         if io::stdout().is_terminal() {
             println!(
                 "Dataset uploaded successfully with ID: {}",
@@ -309,7 +317,9 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         }
         send_notification("Dataset upload complete");
     } else {
+        set_progress(termwiz::escape::osc::Progress::SetIndeterminate);
         let response = client.upload_dataset(project, &name, &dataset).await?;
+        set_progress(termwiz::escape::osc::Progress::None);
 
         if io::stdout().is_terminal() {
             println!(
