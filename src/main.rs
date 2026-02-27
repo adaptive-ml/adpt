@@ -162,16 +162,26 @@ struct TerminalTitleGuard;
 
 impl TerminalTitleGuard {
     fn new(command: &Commands) -> Self {
+        use termwiz::escape::osc::OperatingSystemCommand;
         let title = format!("adpt - {}", command.name());
-        let _ = crossterm::execute!(std::io::stdout(), crossterm::terminal::SetTitle(title));
+        print!("{}", OperatingSystemCommand::SetWindowTitle(title));
         Self
     }
 }
 
 impl Drop for TerminalTitleGuard {
     fn drop(&mut self) {
-        let _ = crossterm::execute!(std::io::stdout(), crossterm::terminal::SetTitle(""));
+        use termwiz::escape::osc::OperatingSystemCommand;
+        print!("{}", OperatingSystemCommand::SetWindowTitle(String::new()));
     }
+}
+
+fn send_notification(message: &str) {
+    use termwiz::escape::osc::OperatingSystemCommand;
+    print!(
+        "{}",
+        OperatingSystemCommand::SystemNotification(message.to_string())
+    );
 }
 
 fn main() -> Result<()> {
@@ -297,6 +307,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         } else {
             println!("{}", response.dataset_id);
         }
+        send_notification("Dataset upload complete");
     } else {
         let response = client.upload_dataset(project, &name, &dataset).await?;
 
@@ -309,6 +320,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         } else {
             println!("{}", response.id)
         }
+        send_notification("Dataset upload complete");
     }
 
     Ok(())
