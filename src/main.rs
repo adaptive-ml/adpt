@@ -361,11 +361,12 @@ async fn publish_recipe<P: AsRef<Path>>(
     force: bool,
 ) -> Result<()> {
     let name = name.unwrap_or_else(|| {
-        let file_name = recipe.as_ref().file_name().unwrap().to_string_lossy();
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("SystemTime before UNIX EPOCH");
-        format!("{}-{}", file_name, now.as_secs())
+        recipe
+            .as_ref()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
     });
     let key = key.unwrap_or_else(|| slugify(&name));
 
