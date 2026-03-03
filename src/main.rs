@@ -113,6 +113,9 @@ enum Commands {
         /// Recipe key
         #[arg(short, long)]
         key: Option<String>,
+        /// Update existing recipe if it exists
+        #[arg(short, long)]
+        force: bool,
     },
     /// List recipes
     Recipes {
@@ -171,7 +174,8 @@ fn main() -> Result<()> {
                                         recipe,
                                         name,
                                         key,
-                                    } => publish_recipe(&client, &load_project(project), name, key, recipe).await,
+                                        force,
+                                    } => publish_recipe(&client, &load_project(project), name, key, recipe, force).await,
                     Commands::Run { project, args } => {
                                         run_recipe(&client, &load_project(project), args).await
                                     }
@@ -354,6 +358,7 @@ async fn publish_recipe<P: AsRef<Path>>(
     name: Option<String>,
     key: Option<String>,
     recipe: P,
+    force: bool,
 ) -> Result<()> {
     let name = name.unwrap_or_else(|| {
         let file_name = recipe.as_ref().file_name().unwrap().to_string_lossy();
@@ -364,18 +369,52 @@ async fn publish_recipe<P: AsRef<Path>>(
     });
     let key = key.unwrap_or_else(|| slugify(&name));
 
-    let response = if recipe.as_ref().is_dir() {
-        let recipe = zip_recipe_dir(recipe)?;
-        client.publish_recipe(project, &name, &key, &recipe).await?
-    } else {
-        client.publish_recipe(project, &name, &key, recipe).await?
-    };
+    let existing = client.get_recipe(project.to_string(), key.clone()).await?;
 
-    println!(
-        "Recipe published successfully with ID: {}, key: {}",
-        response.id,
-        response.key.unwrap_or("<none>".to_string())
-    );
+    if let Some(existing_recipe) = existing {
+        if !force {
+            bail!(
+                "A recipe with key '{}' already exists. Use --force to update it.",
+                key
+            );
+        }
+
+        let recipe_path: Box<dyn AsRef<Path> + Send> = if recipe.as_ref().is_dir() {
+            Box::new(zip_recipe_dir(&recipe)?)
+        } else {
+            Box::new(recipe.as_ref().to_path_buf())
+        };
+
+        let response = client
+            .update_recipe(
+                project,
+                &existing_recipe.id.to_string(),
+                Some(name),
+                None,
+                None,
+                Some(recipe_path.as_ref()),
+            )
+            .await?;
+
+        println!(
+            "Recipe updated successfully with ID: {}, key: {}",
+            response.id,
+            response.key.unwrap_or("<none>".to_string())
+        );
+    } else {
+        let response = if recipe.as_ref().is_dir() {
+            let recipe = zip_recipe_dir(recipe)?;
+            client.publish_recipe(project, &name, &key, &recipe).await?
+        } else {
+            client.publish_recipe(project, &name, &key, recipe).await?
+        };
+
+        println!(
+            "Recipe published successfully with ID: {}, key: {}",
+            response.id,
+            response.key.unwrap_or("<none>".to_string())
+        );
+    }
 
     Ok(())
 }
