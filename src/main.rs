@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 use slug::slugify;
 use std::{
     fs,
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -372,7 +372,7 @@ async fn publish_recipe<P: AsRef<Path>>(
 
     let existing = client.get_recipe(project.to_string(), key.clone()).await?;
 
-    if let Some(existing_recipe) = existing {
+    let (id, key) = if let Some(existing_recipe) = existing {
         if !force {
             bail!(
                 "A recipe with key '{}' already exists. Use --force to update it.",
@@ -397,11 +397,7 @@ async fn publish_recipe<P: AsRef<Path>>(
             )
             .await?;
 
-        println!(
-            "Recipe updated successfully with ID: {}, key: {}",
-            response.id,
-            response.key.unwrap_or("<none>".to_string())
-        );
+        (response.id, response.key)
     } else {
         let response = if recipe.as_ref().is_dir() {
             let recipe = zip_recipe_dir(recipe)?;
@@ -409,13 +405,18 @@ async fn publish_recipe<P: AsRef<Path>>(
         } else {
             client.publish_recipe(project, &name, &key, recipe).await?
         };
+        (response.id, response.key)
+    };
 
+    if io::stdout().is_terminal() {
         println!(
             "Recipe published successfully with ID: {}, key: {}",
-            response.id,
-            response.key.unwrap_or("<none>".to_string())
+            id,
+            key.unwrap_or("<none>".to_string())
         );
-    }
+    } else {
+        println!("{}", id);
+    };
 
     Ok(())
 }
