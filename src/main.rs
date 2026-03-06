@@ -53,7 +53,7 @@ struct RunArgs {
     #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
     recipe: String,
     /// A file containing a JSON object of parameters for the recipe
-    #[arg(short, long, value_hint = ValueHint::FilePath)]
+    #[arg(long, value_hint = ValueHint::FilePath)]
     parameters: Option<PathBuf>,
     /// The name of the run
     #[arg(short, long)]
