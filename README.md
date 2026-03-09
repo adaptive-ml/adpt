@@ -134,6 +134,32 @@ Follow a job's progress until completion:
 adpt job <job-id> --follow
 ```
 
+## Combining with other tools
+
+In order to allow for easy scriptability adpt produces simple machine readable
+output such as bare IDs when it is run in a pipe.
+
+Below are a few examples of how adpt can be combined with other command line
+utilities to achieve additional functionality.
+
+### Publishing a recipe on save
+
+You can use a tool such as [watchexec](https://github.com/watchexec/watchexec)
+to run the publish command when files change:
+
+```sh
+watchexec adpt publish my_recipe.py --force
+```
+
+### Running a recipe on publish
+
+The built-in `xargs` command can be used to use the output of one command as a
+parameter to another:
+
+```sh
+adpt publish my_recipe.py | xargs -I {} adpt run {}
+```
+
 ## Configuration
 
 ### Env file
