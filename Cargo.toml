@@ -1,12 +1,12 @@
 [package]
 name = "adpt"
-version = "0.13.0"
+version = "0.13.1"
 edition = "2024"
 description = "A tool for interacting with the Adaptive platform"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-adaptive-client-rust = "0.13.1"
+adaptive-client-rust = "0.13.2"
 anyhow = "1.0.100"
 async-stream = "0.3"
 futures = "0.3"
