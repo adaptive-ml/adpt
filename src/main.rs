@@ -254,18 +254,26 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
             }
         };
 
-        println!(
-            "Dataset uploaded successfully with ID: {}",
-            response.dataset_id,
-        );
+        if io::stdout().is_terminal() {
+            println!(
+                "Dataset uploaded successfully with ID: {}",
+                response.dataset_id,
+            );
+        } else {
+            println!("{}", response.dataset_id);
+        }
     } else {
         let response = client.upload_dataset(project, &name, &dataset).await?;
 
-        println!(
-            "Dataset uploaded successfully with ID: {}, key: {}",
-            response.id,
-            response.key.unwrap_or("<none>".to_string())
-        );
+        if io::stdout().is_terminal() {
+            println!(
+                "Dataset uploaded successfully with ID: {}, key: {}",
+                response.id,
+                response.key.unwrap_or("<none>".to_string())
+            );
+        } else {
+            println!("{}", response.id)
+        }
     }
 
     Ok(())
@@ -610,7 +618,11 @@ async fn run_recipe(client: &AdaptiveClient, project: &str, run_args: RunArgs) -
         )
         .await?;
 
-    println!("Recipe run successfully with ID: {}", response.id);
+    if io::stdout().is_terminal() {
+        println!("Recipe run successfully with ID: {}", response.id);
+    } else {
+        println!("{}", response.id);
+    }
 
     Ok(())
 }
