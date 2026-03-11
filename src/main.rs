@@ -233,6 +233,7 @@ impl Commands {
             Commands::Schema { .. } => "schema",
             Commands::SetApiKey { .. } => "set-api-key",
             Commands::Role { .. } => "role",
+            Commands::User { .. } => "user",
         }
     }
 }
