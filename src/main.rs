@@ -26,6 +26,7 @@ use zip_extensions::{
 
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
+    terminal::TitleGuard,
     ui::{
         AllModelsList, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ModelsList, ProgressBar,
         RecipeList, SuccessMessage,
@@ -34,6 +35,7 @@ use crate::{
 
 mod config;
 mod json_schema;
+mod terminal;
 mod ui;
 
 const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
@@ -140,6 +142,24 @@ enum Commands {
     SetApiKey { api_key: String },
 }
 
+impl Commands {
+    fn name(&self) -> &'static str {
+        match self {
+            Commands::Cancel { .. } => "cancel",
+            Commands::Config => "config",
+            Commands::Job { .. } => "job",
+            Commands::Jobs => "jobs",
+            Commands::Models { .. } => "models",
+            Commands::Upload { .. } => "upload",
+            Commands::Publish { .. } => "publish",
+            Commands::Recipes { .. } => "recipes",
+            Commands::Run { .. } => "run",
+            Commands::Schema { .. } => "schema",
+            Commands::SetApiKey { .. } => "set-api-key",
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -148,6 +168,7 @@ fn main() -> Result<()> {
     let _rt_guard = rt.enter();
     clap_complete::CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
+    let _title_guard = TitleGuard::new(&format!("adpt - {}", cli.command.name()));
 
     rt.block_on(async {
         match cli.command {
@@ -225,6 +246,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         let key = slugify(&name);
         let mut stream = client.chunked_upload_dataset(project, &name, &key, &dataset)?;
 
+        terminal::set_progress(terminal::Progress::SetPercentage(0));
         let (tx, rx) = watch::channel(0.0);
 
         let process_stream = async {
@@ -234,6 +256,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
                     UploadEvent::Progress(p) => {
                         let percent = (p.bytes_uploaded as f32 / p.total_bytes as f32) * 100.0;
                         let _ = tx.send(percent);
+                        terminal::set_progress(terminal::Progress::SetPercentage(percent as u8));
                     }
                     UploadEvent::Complete(r) => {
                         response = Some(r);
@@ -254,6 +277,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
             }
         };
 
+        terminal::set_progress(terminal::Progress::None);
         if io::stdout().is_terminal() {
             println!(
                 "Dataset uploaded successfully with ID: {}",
@@ -262,7 +286,9 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         } else {
             println!("{}", response.dataset_id);
         }
+        terminal::send_notification("Dataset upload complete");
     } else {
+        terminal::set_progress(terminal::Progress::SetIndeterminate);
         let response = client.upload_dataset(project, &name, &dataset).await?;
 
         if io::stdout().is_terminal() {
@@ -274,7 +300,10 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         } else {
             println!("{}", response.id)
         }
+        terminal::send_notification("Dataset upload complete");
     }
+    terminal::set_progress(terminal::Progress::None);
+    terminal::send_notification("Dataset upload complete");
 
     Ok(())
 }
