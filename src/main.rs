@@ -137,6 +137,20 @@ enum UserCommands {
 }
 
 #[derive(Subcommand)]
+enum TeamCommands {
+    /// Create a new team
+    Create {
+        /// Team name
+        name: String,
+        /// Team key (auto-generated from name if not provided)
+        #[arg(short, long)]
+        key: Option<String>,
+    },
+    /// List all teams
+    List,
+}
+
+#[derive(Subcommand)]
 enum Commands {
     /// Cancel a job
     Cancel { id: Uuid },
@@ -216,6 +230,11 @@ enum Commands {
         #[command(subcommand)]
         command: UserCommands,
     },
+    /// Manage teams
+    Team {
+        #[command(subcommand)]
+        command: TeamCommands,
+    },
 }
 
 impl Commands {
@@ -234,6 +253,7 @@ impl Commands {
             Commands::SetApiKey { .. } => "set-api-key",
             Commands::Role { .. } => "role",
             Commands::User { .. } => "user",
+            Commands::Team { .. } => "team",
         }
     }
 }
@@ -316,6 +336,12 @@ fn main() -> Result<()> {
                             describe_user(&client, &id_or_email).await
                         }
                         UserCommands::List => list_users(&client).await,
+                    },
+                    Commands::Team { command } => match command {
+                        TeamCommands::Create { name, key } => {
+                            create_team(&client, &name, key.as_deref()).await
+                        }
+                        TeamCommands::List => list_teams(&client).await,
                     },
                 }
             },
@@ -750,6 +776,31 @@ async fn run_recipe(client: &AdaptiveClient, project: &str, run_args: RunArgs) -
         println!("Recipe run successfully with ID: {}", response.id);
     } else {
         println!("{}", response.id);
+    }
+
+    Ok(())
+}
+
+async fn create_team(client: &AdaptiveClient, name: &str, key: Option<&str>) -> Result<()> {
+    let response = client.create_team(name, key).await?;
+
+    if io::stdout().is_terminal() {
+        println!(
+            "Team created successfully with ID: {}, key: {}",
+            response.id, response.key
+        );
+    } else {
+        println!("{}", response.id);
+    }
+
+    Ok(())
+}
+
+async fn list_teams(client: &AdaptiveClient) -> Result<()> {
+    let teams = client.list_teams().await?;
+
+    for team in teams {
+        println!("{}\t{}\t{}", team.id, team.key, team.name);
     }
 
     Ok(())
