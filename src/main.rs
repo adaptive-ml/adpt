@@ -127,6 +127,13 @@ enum UserCommands {
         /// User ID or email
         id_or_email: String,
     },
+    /// Describe a user
+    Describe {
+        /// User ID or email
+        id_or_email: String,
+    },
+    /// List all users
+    List,
 }
 
 #[derive(Subcommand)]
@@ -301,9 +308,13 @@ fn main() -> Result<()> {
                         UserCommands::Create { name, email, user_type } => {
                             create_user(&client, &name, email.as_deref(), user_type).await
                         }
-                        UserCommands::Delete { id_or_email: id_or_key } => {
-                            delete_user(&client, &id_or_key).await
+                        UserCommands::Delete { id_or_email } => {
+                            delete_user(&client, &id_or_email).await
                         }
+                        UserCommands::Describe { id_or_email } => {
+                            describe_user(&client, &id_or_email).await
+                        }
+                        UserCommands::List => list_users(&client).await,
                     },
                 }
             },
@@ -741,6 +752,41 @@ async fn run_recipe(client: &AdaptiveClient, project: &str, run_args: RunArgs) -
     }
 
     Ok(())
+}
+
+async fn list_users(client: &AdaptiveClient) -> Result<()> {
+    let users = client.list_users().await?;
+
+    for user in users {
+        println!("{}\t{}\t{}", user.id, user.email, user.name);
+    }
+
+    Ok(())
+}
+
+async fn describe_user(client: &AdaptiveClient, id_or_email: &str) -> Result<()> {
+    let users = client.list_users().await?;
+
+    let user = if let Ok(uuid) = id_or_email.parse::<Uuid>() {
+        users.into_iter().find(|u| u.id == uuid)
+    } else {
+        users.into_iter().find(|u| u.email == id_or_email)
+    };
+
+    match user {
+        Some(user) => {
+            println!("ID:        {}", user.id);
+            println!("Email:     {}", user.email);
+            println!("Name:      {}", user.name);
+            println!("Type:      {:?}", user.user_type);
+            println!(
+                "Created:   {}",
+                humantime::format_rfc3339(user.created_at.0)
+            );
+            Ok(())
+        }
+        None => bail!("User not found: {}", id_or_email),
+    }
 }
 
 async fn create_user(
