@@ -1,7 +1,9 @@
-use adaptive_client_rust::{AdaptiveClient, UploadEvent};
+use adaptive_client_rust::{AdaptiveClient, UploadEvent, create_user};
 use anyhow::{Context, Result, anyhow, bail};
 use autumnus::{FormatterOption, Options, highlight, themes};
-use clap::{Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueHint, value_parser};
+use clap::{
+    Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueEnum, ValueHint, value_parser,
+};
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
 use futures::StreamExt;
 use iocraft::prelude::*;
@@ -92,6 +94,41 @@ enum RoleCommands {
     List,
 }
 
+#[derive(Clone, ValueEnum)]
+enum UserTypeArg {
+    Human,
+    System,
+}
+
+impl From<UserTypeArg> for create_user::UserType {
+    fn from(arg: UserTypeArg) -> Self {
+        match arg {
+            UserTypeArg::Human => Self::HUMAN,
+            UserTypeArg::System => Self::SYSTEM,
+        }
+    }
+}
+
+#[derive(Subcommand)]
+enum UserCommands {
+    /// Create a new user
+    Create {
+        /// User name
+        name: String,
+        /// User email (required for human users)
+        #[arg(short, long)]
+        email: Option<String>,
+        /// User type
+        #[arg(short = 't', long, default_value = "human")]
+        user_type: UserTypeArg,
+    },
+    /// Delete a user
+    Delete {
+        /// User ID or email
+        id_or_email: String,
+    },
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Cancel a job
@@ -166,6 +203,11 @@ enum Commands {
     Role {
         #[command(subcommand)]
         command: RoleCommands,
+    },
+    /// Manage users
+    User {
+        #[command(subcommand)]
+        command: UserCommands,
     },
 }
 
@@ -254,6 +296,14 @@ fn main() -> Result<()> {
                             describe_role(&client, &id_or_key).await
                         }
                         RoleCommands::List => list_roles(&client).await,
+                    },
+                    Commands::User { command } => match command {
+                        UserCommands::Create { name, email, user_type } => {
+                            create_user(&client, &name, email.as_deref(), user_type).await
+                        }
+                        UserCommands::Delete { id_or_email: id_or_key } => {
+                            delete_user(&client, &id_or_key).await
+                        }
                     },
                 }
             },
@@ -686,6 +736,40 @@ async fn run_recipe(client: &AdaptiveClient, project: &str, run_args: RunArgs) -
 
     if io::stdout().is_terminal() {
         println!("Recipe run successfully with ID: {}", response.id);
+    } else {
+        println!("{}", response.id);
+    }
+
+    Ok(())
+}
+
+async fn create_user(
+    client: &AdaptiveClient,
+    name: &str,
+    email: Option<&str>,
+    user_type: UserTypeArg,
+) -> Result<()> {
+    let response = client
+        .create_user(name, email, vec![], Some(user_type.into()), None)
+        .await?;
+
+    if io::stdout().is_terminal() {
+        println!("User created successfully with ID: {}", response.user.id);
+    } else {
+        println!("{}", response.user.id);
+    }
+
+    Ok(())
+}
+
+async fn delete_user(client: &AdaptiveClient, id_or_email: &str) -> Result<()> {
+    let response = client.delete_user(id_or_email).await?;
+
+    if io::stdout().is_terminal() {
+        println!(
+            "User deleted successfully: {} ({})",
+            response.name, response.email
+        );
     } else {
         println!("{}", response.id);
     }
