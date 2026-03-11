@@ -7,7 +7,6 @@ use adaptive_client_rust::list_all_models::{self, ListAllModelsModels};
 use adaptive_client_rust::list_jobs::{self, ListJobsJobsNodes};
 use adaptive_client_rust::list_models::{self, ListModelsProjectModelServices};
 use adaptive_client_rust::{AdaptiveClient, get_job};
-use fancy_duration::AsFancyDuration;
 use iocraft::prelude::*;
 use tokio::sync::watch::Receiver;
 use uuid::Uuid;
@@ -314,7 +313,7 @@ pub fn JobsList(props: &JobsListProps) -> impl Into<AnyElement<'static>> {
                             }
 
                             View(width: 8) {
-                                Text(content: Duration::from_millis(job.duration_ms.unwrap_or_default() as u64).fancy_duration().truncate(2).to_string())
+                                Text(content: humantime::format_duration(Duration::from_millis(job.duration_ms.unwrap_or_default() as u64)).to_string())
                             }
 
                             View(padding_right: 1) {

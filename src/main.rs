@@ -71,6 +71,28 @@ struct RunArgs {
 }
 
 #[derive(Subcommand)]
+enum RoleCommands {
+    /// Create a new role
+    Create {
+        /// Role name
+        name: String,
+        /// Role key (auto-generated from name if not provided)
+        #[arg(short, long)]
+        key: Option<String>,
+        /// Permissions to assign to the role
+        #[arg(short, long, required = true, num_args = 1..)]
+        permissions: Vec<String>,
+    },
+    /// Describe a role
+    Describe {
+        /// Role ID (UUID) or key
+        id_or_key: String,
+    },
+    /// List all roles
+    List,
+}
+
+#[derive(Subcommand)]
 enum Commands {
     /// Cancel a job
     Cancel { id: Uuid },
@@ -140,6 +162,11 @@ enum Commands {
     },
     /// Store your API key in the OS keyring
     SetApiKey { api_key: String },
+    /// Manage roles
+    Role {
+        #[command(subcommand)]
+        command: RoleCommands,
+    },
 }
 
 impl Commands {
@@ -156,6 +183,7 @@ impl Commands {
             Commands::Run { .. } => "run",
             Commands::Schema { .. } => "schema",
             Commands::SetApiKey { .. } => "set-api-key",
+            Commands::Role { .. } => "role",
         }
     }
 }
@@ -218,6 +246,15 @@ fn main() -> Result<()> {
                     Commands::Config => panic!("This state should be unreachable"),
                     Commands::SetApiKey { api_key: _ } => panic!("This state should be unreachable"),
                     Commands::Upload { project, dataset, name } => upload_dataset(&client, &load_project(project), dataset, name).await,
+                    Commands::Role { command } => match command {
+                        RoleCommands::Create { name, key, permissions } => {
+                            create_role(&client, &name, key.as_deref(), permissions).await
+                        }
+                        RoleCommands::Describe { id_or_key } => {
+                            describe_role(&client, &id_or_key).await
+                        }
+                        RoleCommands::List => list_roles(&client).await,
+                    },
                 }
             },
         }
@@ -654,6 +691,63 @@ async fn run_recipe(client: &AdaptiveClient, project: &str, run_args: RunArgs) -
     }
 
     Ok(())
+}
+
+async fn create_role(
+    client: &AdaptiveClient,
+    name: &str,
+    key: Option<&str>,
+    permissions: Vec<String>,
+) -> Result<()> {
+    let response = client.create_role(name, key, permissions).await?;
+
+    if io::stdout().is_terminal() {
+        println!(
+            "Role created successfully with ID: {}, key: {}",
+            response.id, response.key
+        );
+    } else {
+        println!("{}", response.id);
+    }
+
+    Ok(())
+}
+
+async fn list_roles(client: &AdaptiveClient) -> Result<()> {
+    let roles = client.list_roles().await?;
+
+    for role in roles {
+        println!("{}\t{}\t{}", role.id, role.key, role.name);
+    }
+
+    Ok(())
+}
+
+async fn describe_role(client: &AdaptiveClient, id_or_key: &str) -> Result<()> {
+    let roles = client.list_roles().await?;
+
+    let role = if let Ok(uuid) = id_or_key.parse::<Uuid>() {
+        roles.into_iter().find(|r| r.id == uuid)
+    } else {
+        roles.into_iter().find(|r| r.key == id_or_key)
+    };
+
+    match role {
+        Some(role) => {
+            println!("ID:          {}", role.id);
+            println!("Key:         {}", role.key);
+            println!("Name:        {}", role.name);
+            println!(
+                "Created:     {}",
+                humantime::format_rfc3339(role.created_at.0)
+            );
+            let mut permissions = role.permissions.clone();
+            permissions.sort();
+            println!("Permissions: {}", permissions.join(", "));
+            Ok(())
+        }
+        None => bail!("Role not found: {}", id_or_key),
+    }
 }
 
 async fn list_jobs(client: &AdaptiveClient, project: Option<String>) -> Result<()> {
