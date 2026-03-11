@@ -741,7 +741,9 @@ async fn describe_role(client: &AdaptiveClient, id_or_key: &str) -> Result<()> {
                 "Created:     {}",
                 humantime::format_rfc3339(role.created_at.0)
             );
-            println!("Permissions: {}", role.permissions.join(", "));
+            let mut permissions = role.permissions.clone();
+            permissions.sort();
+            println!("Permissions: {}", permissions.join(", "));
             Ok(())
         }
         None => bail!("Role not found: {}", id_or_key),
