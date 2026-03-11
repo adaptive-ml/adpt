@@ -15,7 +15,6 @@ use std::{
     time::SystemTime,
 };
 use tempfile::{NamedTempFile, TempPath};
-use termwiz::escape::osc::Progress;
 use tokio::{runtime::Handle, sync::watch};
 use url::Url;
 use uuid::Uuid;
@@ -161,37 +160,6 @@ impl Commands {
     }
 }
 
-struct TerminalTitleGuard;
-
-impl TerminalTitleGuard {
-    fn new(command: &Commands) -> Self {
-        use termwiz::escape::osc::OperatingSystemCommand;
-        let title = format!("adpt - {}", command.name());
-        print!("{}", OperatingSystemCommand::SetWindowTitle(title));
-        Self
-    }
-}
-
-impl Drop for TerminalTitleGuard {
-    fn drop(&mut self) {
-        use termwiz::escape::osc::OperatingSystemCommand;
-        print!("{}", OperatingSystemCommand::SetWindowTitle(String::new()));
-    }
-}
-
-fn send_notification(message: &str) {
-    use termwiz::escape::osc::OperatingSystemCommand;
-    print!(
-        "{}",
-        OperatingSystemCommand::SystemNotification(message.to_string())
-    );
-}
-
-fn set_progress(progress: termwiz::escape::osc::Progress) {
-    use termwiz::escape::osc::OperatingSystemCommand;
-    print!("{}", OperatingSystemCommand::ConEmuProgress(progress));
-}
-
 fn main() -> Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -278,7 +246,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         let key = slugify(&name);
         let mut stream = client.chunked_upload_dataset(project, &name, &key, &dataset)?;
 
-        terminal::set_progress(Progress::SetPercentage(0));
+        terminal::set_progress(terminal::Progress::SetPercentage(0));
         let (tx, rx) = watch::channel(0.0);
 
         let process_stream = async {
@@ -288,7 +256,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
                     UploadEvent::Progress(p) => {
                         let percent = (p.bytes_uploaded as f32 / p.total_bytes as f32) * 100.0;
                         let _ = tx.send(percent);
-                        terminal::set_progress(Progress::SetPercentage(percent as u8));
+                        terminal::set_progress(terminal::Progress::SetPercentage(percent as u8));
                     }
                     UploadEvent::Complete(r) => {
                         response = Some(r);
@@ -309,7 +277,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
             }
         };
 
-        set_progress(termwiz::escape::osc::Progress::None);
+        terminal::set_progress(terminal::Progress::None);
         if io::stdout().is_terminal() {
             println!(
                 "Dataset uploaded successfully with ID: {}",
@@ -318,7 +286,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         } else {
             println!("{}", response.dataset_id);
         }
-        send_notification("Dataset upload complete");
+        terminal::send_notification("Dataset upload complete");
     } else {
         terminal::set_progress(terminal::Progress::SetIndeterminate);
         let response = client.upload_dataset(project, &name, &dataset).await?;
@@ -332,7 +300,7 @@ async fn upload_dataset<P: AsRef<Path> + Sync>(
         } else {
             println!("{}", response.id)
         }
-        send_notification("Dataset upload complete");
+        terminal::send_notification("Dataset upload complete");
     }
     terminal::set_progress(terminal::Progress::None);
     terminal::send_notification("Dataset upload complete");
