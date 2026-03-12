@@ -826,7 +826,11 @@ async fn add_team_member(
     if io::stdout().is_terminal() {
         println!(
             "User {} ({}) added to team {} ({}) with role {}",
-            response.user.name, response.user.email, response.team.name, response.team.key, response.role.name
+            response.user.name,
+            response.user.email,
+            response.team.name,
+            response.team.key,
+            response.role.name
         );
     } else {
         println!("{}", response.user.id);
