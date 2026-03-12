@@ -803,7 +803,10 @@ async fn create_user(
         .await?;
 
     if io::stdout().is_terminal() {
-        println!("User created successfully with ID: {}", response.user.id);
+        println!(
+            "User created successfully with ID: {}, email {}",
+            response.user.id, response.user.email
+        );
     } else {
         println!("{}", response.user.id);
     }
