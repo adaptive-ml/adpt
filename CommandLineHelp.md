@@ -27,6 +27,7 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt user list`↴](#adpt-user-list)
 * [`adpt team`↴](#adpt-team)
 * [`adpt team create`↴](#adpt-team-create)
+* [`adpt team add-member`↴](#adpt-team-add-member)
 * [`adpt team list`↴](#adpt-team-list)
 
 ## `adpt`
@@ -337,6 +338,7 @@ Manage teams
 ###### **Subcommands:**
 
 * `create` — Create a new team
+* `add-member` — Add a user to a team
 * `list` — List all teams
 
 
@@ -354,6 +356,20 @@ Create a new team
 ###### **Options:**
 
 * `-k`, `--key <KEY>` — Team key (auto-generated from name if not provided)
+
+
+
+## `adpt team add-member`
+
+Add a user to a team
+
+**Usage:** `adpt team add-member <USER> <TEAM> <ROLE>`
+
+###### **Arguments:**
+
+* `<USER>` — User ID or email
+* `<TEAM>` — Team ID or key
+* `<ROLE>` — Role ID or key
 
 
 
