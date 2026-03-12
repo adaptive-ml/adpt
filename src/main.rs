@@ -5,6 +5,7 @@ use clap::{
     Arg, Args, Command, CommandFactory, Parser, Subcommand, ValueEnum, ValueHint, value_parser,
 };
 use clap_complete::{ArgValueCompleter, CompletionCandidate};
+use email_address::EmailAddress;
 use futures::StreamExt;
 use iocraft::prelude::*;
 use serde_json::{Map, Value};
@@ -116,8 +117,8 @@ enum UserCommands {
         /// User name
         name: String,
         /// User email (required for human users)
-        #[arg(short, long)]
-        email: Option<String>,
+        #[arg(short, long, value_hint = ValueHint::EmailAddress)]
+        email: Option<EmailAddress>,
         /// User type
         #[arg(short = 't', long, default_value = "human")]
         user_type: UserTypeArg,
@@ -307,7 +308,7 @@ fn main() -> Result<()> {
                     },
                     Commands::User { command } => match command {
                         UserCommands::Create { name, email, user_type } => {
-                            create_user(&client, &name, email.as_deref(), user_type).await
+                            create_user(&client, &name, email, user_type).await
                         }
                         UserCommands::Delete { id_or_email } => {
                             delete_user(&client, &id_or_email).await
@@ -793,11 +794,12 @@ async fn describe_user(client: &AdaptiveClient, id_or_email: &str) -> Result<()>
 async fn create_user(
     client: &AdaptiveClient,
     name: &str,
-    email: Option<&str>,
+    email: Option<EmailAddress>,
     user_type: UserTypeArg,
 ) -> Result<()> {
+    let email = email.map(|e| e.to_string());
     let response = client
-        .create_user(name, email, vec![], Some(user_type.into()), None)
+        .create_user(name, email.as_deref(), vec![], Some(user_type.into()), None)
         .await?;
 
     if io::stdout().is_terminal() {
