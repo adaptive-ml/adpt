@@ -51,10 +51,9 @@ pub fn render_list(config: ListConfig, rows: Vec<Vec<Cell>>) -> impl Into<AnyEle
         .iter()
         .enumerate()
         .map(|(i, c)| {
-            let padding = if i == 0 { 1u32 } else { 0 }
-                + if i == num_columns - 1 { 1u32 } else { 0 };
-            c.width
-                .map(|w| w.max(c.header.len() as u32 + padding))
+            let padding =
+                if i == 0 { 1u32 } else { 0 } + if i == num_columns - 1 { 1u32 } else { 0 };
+            c.width.map(|w| w.max(c.header.len() as u32 + padding))
         })
         .collect();
 
@@ -92,12 +91,14 @@ pub fn render_list(config: ListConfig, rows: Vec<Vec<Cell>>) -> impl Into<AnyEle
         .collect();
 
     let body: Vec<AnyElement<'static>> = if rows.is_empty() {
-        vec![element! {
-            View(padding: 2u32, justify_content: JustifyContent::Center) {
-                Text(content: config.empty_message, color: Color::Grey)
+        vec![
+            element! {
+                View(padding: 2u32, justify_content: JustifyContent::Center) {
+                    Text(content: config.empty_message, color: Color::Grey)
+                }
             }
-        }
-        .into_any()]
+            .into_any(),
+        ]
     } else {
         rows.into_iter()
             .enumerate()
