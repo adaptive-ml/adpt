@@ -25,6 +25,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libdbus-1-dev pkg-config
 
+      - name: Install difftastic
+        run: cargo install difftastic
+
       - name: Run cargo check
         run: cargo check
 
@@ -33,6 +36,14 @@ jobs:
 
       - name: Run cargo clippy
         run: cargo clippy -- -D warnings
+
+      - name: Check CLI help markdown is up-to-date
+        run: |
+          cargo run -- --markdown-help models > CommandLineHelp.md.new
+          if ! difft --exit-code --display side-by-side-show-both CommandLineHelp.md CommandLineHelp.md.new; then
+            echo "::error::CommandLineHelp.md is out of date. Run 'cargo run -- --markdown-help > CommandLineHelp.md' and commit the result."
+            exit 1
+          fi
 
   build:
     name: Build
