@@ -4,27 +4,26 @@ This document contains the help content for the `adpt` command-line program.
 
 **Command Overview:**
 
-* [`adpt`↴](#adpt)
-* [`adpt cancel`↴](#adpt-cancel)
-* [`adpt config`↴](#adpt-config)
-* [`adpt job`↴](#adpt-job)
-* [`adpt jobs`↴](#adpt-jobs)
-* [`adpt models`↴](#adpt-models)
-* [`adpt upload`↴](#adpt-upload)
-* [`adpt publish`↴](#adpt-publish)
-* [`adpt recipes`↴](#adpt-recipes)
-* [`adpt run`↴](#adpt-run)
-* [`adpt schema`↴](#adpt-schema)
-* [`adpt set-api-key`↴](#adpt-set-api-key)
-* [`adpt role`↴](#adpt-role)
-* [`adpt role create`↴](#adpt-role-create)
-* [`adpt role describe`↴](#adpt-role-describe)
-* [`adpt role list`↴](#adpt-role-list)
-* [`adpt user`↴](#adpt-user)
-* [`adpt user create`↴](#adpt-user-create)
-* [`adpt user delete`↴](#adpt-user-delete)
-* [`adpt user describe`↴](#adpt-user-describe)
-* [`adpt user list`↴](#adpt-user-list)
+- [`adpt cancel`↴](#adpt-cancel)
+- [`adpt config`↴](#adpt-config)
+- [`adpt job`↴](#adpt-job)
+- [`adpt jobs`↴](#adpt-jobs)
+- [`adpt models`↴](#adpt-models)
+- [`adpt upload`↴](#adpt-upload)
+- [`adpt publish`↴](#adpt-publish)
+- [`adpt recipes`↴](#adpt-recipes)
+- [`adpt run`↴](#adpt-run)
+- [`adpt schema`↴](#adpt-schema)
+- [`adpt set-api-key`↴](#adpt-set-api-key)
+- [`adpt role`↴](#adpt-role)
+- [`adpt role create`↴](#adpt-role-create)
+- [`adpt role describe`↴](#adpt-role-describe)
+- [`adpt role list`↴](#adpt-role-list)
+- [`adpt user`↴](#adpt-user)
+- [`adpt user create`↴](#adpt-user-create)
+- [`adpt user delete`↴](#adpt-user-delete)
+- [`adpt user describe`↴](#adpt-user-describe)
+- [`adpt user list`↴](#adpt-user-list)
 
 ## `adpt`
 
@@ -34,21 +33,19 @@ A tool interacting with the Adaptive platform
 
 ###### **Subcommands:**
 
-* `cancel` — Cancel a job
-* `config` — Configure adpt interactively
-* `job` — Inspect job
-* `jobs` — List currently running jobs
-* `models` — List models
-* `upload` — Upload dataset
-* `publish` — Upload recipe
-* `recipes` — List recipes
-* `run` — Run recipe
-* `schema` — Display the schema for inputs for a recipe
-* `set-api-key` — Store your API key in the OS keyring
-* `role` — Manage roles
-* `user` — Manage users
-
-
+- `cancel` — Cancel a job
+- `config` — Configure adpt interactively
+- `job` — Inspect job
+- `jobs` — List currently running jobs
+- `models` — List models
+- `upload` — Upload dataset
+- `publish` — Upload recipe
+- `recipes` — List recipes
+- `run` — Run recipe
+- `schema` — Display the schema for inputs for a recipe
+- `set-api-key` — Store your API key in the OS keyring
+- `role` — Manage roles
+- `user` — Manage users
 
 ## `adpt cancel`
 
@@ -58,17 +55,13 @@ Cancel a job
 
 ###### **Arguments:**
 
-* `<ID>`
-
-
+- `<ID>`
 
 ## `adpt config`
 
 Configure adpt interactively
 
 **Usage:** `adpt config`
-
-
 
 ## `adpt job`
 
@@ -78,21 +71,17 @@ Inspect job
 
 ###### **Arguments:**
 
-* `<ID>`
+- `<ID>`
 
 ###### **Options:**
 
-* `-f`, `--follow` — Follow job status updates until completion
-
-
+- `-f`, `--follow` — Follow job status updates until completion
 
 ## `adpt jobs`
 
 List currently running jobs
 
 **Usage:** `adpt jobs`
-
-
 
 ## `adpt models`
 
@@ -102,10 +91,8 @@ List models
 
 ###### **Options:**
 
-* `-p`, `--project <PROJECT>`
-* `-a`, `--all` — List all models in the global model registry
-
-
+- `-p`, `--project <PROJECT>`
+- `-a`, `--all` — List all models in the global model registry
 
 ## `adpt upload`
 
@@ -115,14 +102,12 @@ Upload dataset
 
 ###### **Arguments:**
 
-* `<DATASET>`
+- `<DATASET>`
 
 ###### **Options:**
 
-* `-p`, `--project <PROJECT>`
-* `-n`, `--name <NAME>` — Dataset name
-
-
+- `-p`, `--project <PROJECT>`
+- `-n`, `--name <NAME>` — Dataset name
 
 ## `adpt publish`
 
@@ -132,16 +117,14 @@ Upload recipe
 
 ###### **Arguments:**
 
-* `<RECIPE>`
+- `<RECIPE>`
 
 ###### **Options:**
 
-* `-p`, `--project <PROJECT>`
-* `-n`, `--name <NAME>` — Recipe name
-* `-k`, `--key <KEY>` — Recipe key
-* `-f`, `--force` — Update existing recipe if it exists
-
-
+- `-p`, `--project <PROJECT>`
+- `-n`, `--name <NAME>` — Recipe name
+- `-k`, `--key <KEY>` — Recipe key
+- `-f`, `--force` — Update existing recipe if it exists
 
 ## `adpt recipes`
 
@@ -151,9 +134,7 @@ List recipes
 
 ###### **Options:**
 
-* `-p`, `--project <PROJECT>`
-
-
+- `-p`, `--project <PROJECT>`
 
 ## `adpt run`
 
@@ -163,18 +144,17 @@ Run recipe
 
 ###### **Arguments:**
 
-* `<RECIPE>` — Recipe ID or key
-* `<ARGS>`
+- `<RECIPE>` — Recipe ID or key
+- `<ARGS>`
 
 ###### **Options:**
 
-* `-p`, `--project <PROJECT>`
-* `--parameters <PARAMETERS>` — A file containing a JSON object of parameters for the recipe
-* `-n`, `--name <NAME>` — The name of the run
-* `-c`, `--compute-pool <COMPUTE_POOL>` — The compute pool to run the recipe on
-* `-g`, `--gpus <GPUS>` — The number of GPUs to run the recipe on
-
-
+- `-p`, `--project <PROJECT>`
+- `--parameters <PARAMETERS>` — A file containing a JSON object of parameters
+  for the recipe
+- `-n`, `--name <NAME>` — The name of the run
+- `-c`, `--compute-pool <COMPUTE_POOL>` — The compute pool to run the recipe on
+- `-g`, `--gpus <GPUS>` — The number of GPUs to run the recipe on
 
 ## `adpt schema`
 
@@ -184,13 +164,11 @@ Display the schema for inputs for a recipe
 
 ###### **Arguments:**
 
-* `<RECIPE>`
+- `<RECIPE>`
 
 ###### **Options:**
 
-* `-p`, `--project <PROJECT>`
-
-
+- `-p`, `--project <PROJECT>`
 
 ## `adpt set-api-key`
 
@@ -200,9 +178,7 @@ Store your API key in the OS keyring
 
 ###### **Arguments:**
 
-* `<API_KEY>`
-
-
+- `<API_KEY>`
 
 ## `adpt role`
 
@@ -212,11 +188,9 @@ Manage roles
 
 ###### **Subcommands:**
 
-* `create` — Create a new role
-* `describe` — Describe a role
-* `list` — List all roles
-
-
+- `create` — Create a new role
+- `describe` — Describe a role
+- `list` — List all roles
 
 ## `adpt role create`
 
@@ -226,14 +200,12 @@ Create a new role
 
 ###### **Arguments:**
 
-* `<NAME>` — Role name
+- `<NAME>` — Role name
 
 ###### **Options:**
 
-* `-k`, `--key <KEY>` — Role key (auto-generated from name if not provided)
-* `-p`, `--permissions <PERMISSIONS>` — Permissions to assign to the role
-
-
+- `-k`, `--key <KEY>` — Role key (auto-generated from name if not provided)
+- `-p`, `--permissions <PERMISSIONS>` — Permissions to assign to the role
 
 ## `adpt role describe`
 
@@ -243,17 +215,13 @@ Describe a role
 
 ###### **Arguments:**
 
-* `<ID_OR_KEY>` — Role ID (UUID) or key
-
-
+- `<ID_OR_KEY>` — Role ID (UUID) or key
 
 ## `adpt role list`
 
 List all roles
 
 **Usage:** `adpt role list`
-
-
 
 ## `adpt user`
 
@@ -263,12 +231,10 @@ Manage users
 
 ###### **Subcommands:**
 
-* `create` — Create a new user
-* `delete` — Delete a user
-* `describe` — Describe a user
-* `list` — List all users
-
-
+- `create` — Create a new user
+- `delete` — Delete a user
+- `describe` — Describe a user
+- `list` — List all users
 
 ## `adpt user create`
 
@@ -278,19 +244,16 @@ Create a new user
 
 ###### **Arguments:**
 
-* `<NAME>` — User name
+- `<NAME>` — User name
 
 ###### **Options:**
 
-* `-e`, `--email <EMAIL>` — User email (required for human users)
-* `-t`, `--user-type <USER_TYPE>` — User type
+- `-e`, `--email <EMAIL>` — User email (required for human users)
+- `-t`, `--user-type <USER_TYPE>` — User type
 
   Default value: `human`
 
   Possible values: `human`, `system`
-
-
-
 
 ## `adpt user delete`
 
@@ -300,9 +263,7 @@ Delete a user
 
 ###### **Arguments:**
 
-* `<ID_OR_EMAIL>` — User ID or email
-
-
+- `<ID_OR_EMAIL>` — User ID or email
 
 ## `adpt user describe`
 
@@ -312,9 +273,7 @@ Describe a user
 
 ###### **Arguments:**
 
-* `<ID_OR_EMAIL>` — User ID or email
-
-
+- `<ID_OR_EMAIL>` — User ID or email
 
 ## `adpt user list`
 
@@ -322,12 +281,8 @@ List all users
 
 **Usage:** `adpt user list`
 
-
-
 <hr/>
 
-<small><i>
-    This document was generated automatically by
-    <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
+<small><i> This document was generated automatically by
+<a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
 </i></small>
-
