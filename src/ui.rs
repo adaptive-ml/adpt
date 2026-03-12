@@ -11,6 +11,167 @@ use iocraft::prelude::*;
 use tokio::sync::watch::Receiver;
 use uuid::Uuid;
 
+pub struct Cell {
+    pub content: String,
+    pub color: Option<Color>,
+}
+
+impl From<String> for Cell {
+    fn from(s: String) -> Self {
+        Cell {
+            content: s,
+            color: None,
+        }
+    }
+}
+
+impl From<&str> for Cell {
+    fn from(s: &str) -> Self {
+        Cell {
+            content: s.to_string(),
+            color: None,
+        }
+    }
+}
+
+pub struct Column {
+    pub header: &'static str,
+    pub width: Option<u32>,
+}
+
+pub struct ListConfig {
+    pub columns: Vec<Column>,
+    pub empty_message: &'static str,
+}
+
+pub fn render_list(config: ListConfig, rows: Vec<Vec<Cell>>) -> impl Into<AnyElement<'static>> {
+    let num_columns = config.columns.len();
+    let col_widths: Vec<Option<u32>> = config
+        .columns
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            let padding = if i == 0 { 1u32 } else { 0 }
+                + if i == num_columns - 1 { 1u32 } else { 0 };
+            c.width
+                .map(|w| w.max(c.header.len() as u32 + padding))
+        })
+        .collect();
+
+    let header_cells: Vec<AnyElement<'static>> = config
+        .columns
+        .iter()
+        .enumerate()
+        .map(|(i, col)| {
+            let is_first = i == 0;
+            let is_last = i == num_columns - 1;
+            let width = col_widths[i];
+            if let Some(w) = width {
+                element! {
+                    View(
+                        padding_left: if is_first { 1u32 } else { 0 },
+                        padding_right: if is_last { 1u32 } else { 0 },
+                        width: w,
+                    ) {
+                        Text(content: col.header, weight: Weight::Bold, decoration: TextDecoration::Underline)
+                    }
+                }
+                .into_any()
+            } else {
+                element! {
+                    View(
+                        padding_left: if is_first { 1u32 } else { 0 },
+                        padding_right: if is_last { 1u32 } else { 0 },
+                    ) {
+                        Text(content: col.header, weight: Weight::Bold, decoration: TextDecoration::Underline)
+                    }
+                }
+                .into_any()
+            }
+        })
+        .collect();
+
+    let body: Vec<AnyElement<'static>> = if rows.is_empty() {
+        vec![element! {
+            View(padding: 2u32, justify_content: JustifyContent::Center) {
+                Text(content: config.empty_message, color: Color::Grey)
+            }
+        }
+        .into_any()]
+    } else {
+        rows.into_iter()
+            .enumerate()
+            .map(|(i, row)| {
+                let cells: Vec<AnyElement<'static>> = row
+                    .into_iter()
+                    .enumerate()
+                    .map(|(j, cell)| {
+                        let is_first = j == 0;
+                        let is_last = j == num_columns - 1;
+                        let col_width = col_widths.get(j).copied().flatten();
+                        if let Some(w) = col_width {
+                            element! {
+                                View(
+                                    padding_left: if is_first { 1u32 } else { 0 },
+                                    padding_right: if is_last { 1u32 } else { 0 },
+                                    width: w,
+                                ) {
+                                    Text(
+                                        content: cell.content,
+                                        color: cell.color.unwrap_or(Color::Reset),
+                                    )
+                                }
+                            }
+                            .into_any()
+                        } else {
+                            element! {
+                                View(
+                                    padding_left: if is_first { 1u32 } else { 0 },
+                                    padding_right: if is_last { 1u32 } else { 0 },
+                                ) {
+                                    Text(
+                                        content: cell.content,
+                                        color: cell.color.unwrap_or(Color::Reset),
+                                    )
+                                }
+                            }
+                            .into_any()
+                        }
+                    })
+                    .collect();
+
+                element! {
+                    View(
+                        background_color: if i % 2 == 0 { None } else { Some(Color::Grey) },
+                        gap: 2u32,
+                    ) {
+                        #(cells)
+                    }
+                }
+                .into_any()
+            })
+            .collect()
+    };
+
+    element! {
+        View(
+            flex_direction: FlexDirection::Column,
+            border_style: BorderStyle::Round,
+            border_color: Color::Cyan,
+        ) {
+            View(
+                border_style: BorderStyle::Single,
+                border_edges: Edges::Bottom,
+                border_color: Color::Grey,
+                gap: 2u32,
+            ) {
+                #(header_cells)
+            }
+            #(body)
+        }
+    }
+}
+
 #[derive(Default, Props)]
 pub struct ProgressBarProps {
     pub title: String,
@@ -53,15 +214,19 @@ pub struct RecipeListProps {
 
 #[component]
 pub fn RecipeList(props: &RecipeListProps) -> impl Into<AnyElement<'static>> {
-    element! {
-        View(flex_direction: FlexDirection::Column) {
-            #(props.recipes.iter().map(|recipe| {
-                element! {
-                        Text(content: recipe.name.clone())
-                }
-            }))
-        }
-    }
+    let config = ListConfig {
+        columns: vec![Column {
+            header: "Name",
+            width: None,
+        }],
+        empty_message: "No recipes found",
+    };
+    let rows: Vec<Vec<Cell>> = props
+        .recipes
+        .iter()
+        .map(|recipe| vec![Cell::from(recipe.name.as_str())])
+        .collect();
+    render_list(config, rows)
 }
 
 #[derive(Default, Props)]
@@ -69,57 +234,32 @@ pub struct JobsListProps {
     pub jobs: Vec<ListJobsJobsNodes>,
 }
 
-#[derive(Default, Props)]
-pub struct JobStatusIconProps {
-    pub status: Option<list_jobs::JobStatus>,
-}
-
-#[component]
-fn JobStatusIcon(props: &JobStatusIconProps) -> impl Into<AnyElement<'static>> {
-    let status = props.status.as_ref().unwrap();
+fn job_status_cell(status: &list_jobs::JobStatus) -> Cell {
     match status {
-        list_jobs::JobStatus::PENDING => element! {
-            Text (
-                color: Color::Yellow,
-                content: "⏳"
-            )
-        }
-        .into_any(),
-        list_jobs::JobStatus::RUNNING => element! {
-            Text (
-                color: Color::Yellow,
-                content: "▶️"
-            )
-        }
-        .into_any(),
-        list_jobs::JobStatus::COMPLETED => element! {
-            Text (
-                color: Color::Green,
-                content: "✅"
-            )
-        }
-        .into_any(),
-        list_jobs::JobStatus::FAILED => element! {
-            Text (
-                color: Color::Red,
-                content: "❌"
-            )
-        }
-        .into_any(),
-        list_jobs::JobStatus::CANCELED => element! {
-            Text (
-                color: Color::Yellow,
-                content: "🚫"
-            )
-        }
-        .into_any(),
-        list_jobs::JobStatus::Other(_) => element! {
-            Text (
-                color: Color::Yellow,
-                content: "❓"
-            )
-        }
-        .into_any(),
+        list_jobs::JobStatus::PENDING => Cell {
+            content: "⏳".to_string(),
+            color: Some(Color::Yellow),
+        },
+        list_jobs::JobStatus::RUNNING => Cell {
+            content: "▶️".to_string(),
+            color: Some(Color::Yellow),
+        },
+        list_jobs::JobStatus::COMPLETED => Cell {
+            content: "✅".to_string(),
+            color: Some(Color::Green),
+        },
+        list_jobs::JobStatus::FAILED => Cell {
+            content: "❌".to_string(),
+            color: Some(Color::Red),
+        },
+        list_jobs::JobStatus::CANCELED => Cell {
+            content: "🚫".to_string(),
+            color: Some(Color::Yellow),
+        },
+        list_jobs::JobStatus::Other(_) => Cell {
+            content: "❓".to_string(),
+            color: Some(Color::Yellow),
+        },
     }
 }
 
@@ -189,62 +329,37 @@ impl ModelDisplay for ListAllModelsModels {
     }
 }
 
-fn render_models_table<T: ModelDisplay + Clone>(models: &[T]) -> impl Into<AnyElement<'static>> {
-    element! {
-        View(flex_direction: FlexDirection::Column,
-             border_style: BorderStyle::Round,
-             border_color: Color::Cyan,
-        ) {
-
-            View(border_style: BorderStyle::Single, border_edges: Edges::Bottom, border_color: Color::Grey, gap: 2) {
-                View(padding_left: 1) {
-                    Text(content: "Status", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-
-                View(justify_content: JustifyContent::Start, width: 36) {
-                    Text(content: "Id", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-
-                View(width: 25) {
-                    Text(content: "Name", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-
-                View(padding_right: 1) {
-                    Text(content: "Key", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-            }
-            #({
-                if models.is_empty() {
-                    vec![element! {
-                        View(padding: 2, justify_content: JustifyContent::Center) {
-                            Text(content: "No models found", color: Color::Grey)
-                        }
-                    }]
-                } else {
-                    models.iter().enumerate().map(|(i, model)| { element! {
-                        View(background_color: if i % 2 == 0 { None } else { Some(Color::Grey) }, gap: 2) {
-                            View() {
-                                Text(content: model.get_status())
-                            }
-
-                            View() {
-                                Text(content: model.get_id())
-                            }
-
-                            View(width: 25) {
-                                Text(content: model.get_name())
-                            }
-
-                            View(padding_right: 1) {
-                                Text(content: model.get_key())
-                            }
-                        }
-                    }
-                    }).collect()
-                }
-            })
-        }
+fn models_list_config() -> ListConfig {
+    ListConfig {
+        columns: vec![
+            Column {
+                header: "Status",
+                width: None,
+            },
+            Column {
+                header: "Id",
+                width: Some(36),
+            },
+            Column {
+                header: "Name",
+                width: Some(25),
+            },
+            Column {
+                header: "Key",
+                width: None,
+            },
+        ],
+        empty_message: "No models found",
     }
+}
+
+fn model_to_row(model: &dyn ModelDisplay) -> Vec<Cell> {
+    vec![
+        Cell::from(model.get_status()),
+        Cell::from(model.get_id()),
+        Cell::from(model.get_name()),
+        Cell::from(model.get_key()),
+    ]
 }
 
 #[derive(Default, Props)]
@@ -254,7 +369,13 @@ pub struct ModelsListProps {
 
 #[component]
 pub fn ModelsList(props: &ModelsListProps) -> impl Into<AnyElement<'static>> {
-    render_models_table(&props.model_services)
+    let config = models_list_config();
+    let rows: Vec<Vec<Cell>> = props
+        .model_services
+        .iter()
+        .map(|m| model_to_row(m))
+        .collect();
+    render_list(config, rows)
 }
 
 #[derive(Default, Props)]
@@ -264,68 +385,58 @@ pub struct AllModelsListProps {
 
 #[component]
 pub fn AllModelsList(props: &AllModelsListProps) -> impl Into<AnyElement<'static>> {
-    render_models_table(&props.models)
+    let config = models_list_config();
+    let rows: Vec<Vec<Cell>> = props.models.iter().map(|m| model_to_row(m)).collect();
+    render_list(config, rows)
 }
 
 #[component]
 pub fn JobsList(props: &JobsListProps) -> impl Into<AnyElement<'static>> {
-    element! {
-        View(flex_direction: FlexDirection::Column,
-             border_style: BorderStyle::Round,
-             border_color: Color::Cyan,
-        ) {
-
-            View(border_style: BorderStyle::Single, border_edges: Edges::Bottom, border_color: Color::Grey, gap: 2) {
-                View(padding_left: 1) {
-                    Text(content: "Status", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-
-                View(justify_content: JustifyContent::Start, width: 36) {
-                    Text(content: "Id", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-
-                View() {
-                    Text(content: "Duration", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-
-                View(padding_right: 1) {
-                    Text(content: "User", weight: Weight::Bold, decoration: TextDecoration::Underline)
-                }
-            }
-            #({
-                if props.jobs.is_empty() {
-                    vec![element! {
-                        View(padding: 2, justify_content: JustifyContent::Center) {
-                            Text(content: "No jobs found", color: Color::Grey)
-                        }
-                    }]
-                } else {
-                    let mut sorted = props.jobs.clone();
-                    sorted.sort_by(|job1, job2| job1.created_at.cmp(&job2.created_at).reverse());
-                    sorted.into_iter().enumerate().map(|(i, job)| { element! {
-                        View(background_color: if i % 2 == 0 { None } else { Some(Color::Grey) }, gap: 2) {
-                            View(width: 6, justify_content: JustifyContent::Center, margin_left: 1) {
-                                JobStatusIcon(status: job.status.clone())
-                            }
-
-                            View() {
-                                Text(content: job.id)
-                            }
-
-                            View(width: 8) {
-                                Text(content: humantime::format_duration(Duration::from_millis(job.duration_ms.unwrap_or_default() as u64)).to_string())
-                            }
-
-                            View(padding_right: 1) {
-                                Text(content: job.created_by.as_ref().map(|user| format!("{} <{}>", user.name, user.email)).unwrap_or("Unknown".to_string()))
-                            }
-                        }
-                    }
-                    }).collect()
-                }
-            })
-        }
-    }
+    let config = ListConfig {
+        columns: vec![
+            Column {
+                header: "Status",
+                width: Some(6),
+            },
+            Column {
+                header: "Id",
+                width: Some(36),
+            },
+            Column {
+                header: "Duration",
+                width: Some(8),
+            },
+            Column {
+                header: "User",
+                width: None,
+            },
+        ],
+        empty_message: "No jobs found",
+    };
+    let mut sorted = props.jobs.clone();
+    sorted.sort_by(|job1, job2| job1.created_at.cmp(&job2.created_at).reverse());
+    let rows: Vec<Vec<Cell>> = sorted
+        .iter()
+        .map(|job| {
+            vec![
+                job_status_cell(&job.status),
+                Cell::from(job.id.to_string()),
+                Cell::from(
+                    humantime::format_duration(Duration::from_millis(
+                        job.duration_ms.unwrap_or_default() as u64,
+                    ))
+                    .to_string(),
+                ),
+                Cell::from(
+                    job.created_by
+                        .as_ref()
+                        .map(|user| format!("{} <{}>", user.name, user.email))
+                        .unwrap_or("Unknown".to_string()),
+                ),
+            ]
+        })
+        .collect();
+    render_list(config, rows)
 }
 
 #[derive(Default, Props)]
