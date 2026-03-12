@@ -45,6 +45,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libdbus-1-dev pkg-config
 
+      - name: Install cargo-generate-rpm
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo install cargo-generate-rpm
+
       - name: Cache cargo registry
         uses: actions/cache@v5
         with:
@@ -65,6 +69,12 @@ jobs:
         run:
           strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
 
+      - name: Build RPM
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo generate-rpm
+          cp target/generate-rpm/${{ matrix.artifact_name }}.rpm adpt.x86_64.rpm
+
       - name: Rename binary for release
         run: |
           cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
@@ -73,6 +83,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload RPM
+        uses: softprops/action-gh-release@v2
+        with:
+          files: adpt.x86_64.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
