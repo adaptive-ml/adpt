@@ -4,7 +4,6 @@ This document contains the help content for the `adpt` command-line program.
 
 **Command Overview:**
 
-- [`adpt`↴](#adpt)
 - [`adpt cancel`↴](#adpt-cancel)
 - [`adpt config`↴](#adpt-config)
 - [`adpt job`↴](#adpt-job)
