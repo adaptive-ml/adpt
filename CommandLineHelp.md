@@ -25,6 +25,9 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt user delete`↴](#adpt-user-delete)
 * [`adpt user describe`↴](#adpt-user-describe)
 * [`adpt user list`↴](#adpt-user-list)
+* [`adpt team`↴](#adpt-team)
+* [`adpt team create`↴](#adpt-team-create)
+* [`adpt team list`↴](#adpt-team-list)
 
 ## `adpt`
 
@@ -47,6 +50,7 @@ A tool interacting with the Adaptive platform
 * `set-api-key` — Store your API key in the OS keyring
 * `role` — Manage roles
 * `user` — Manage users
+* `team` — Manage teams
 
 
 
@@ -321,6 +325,43 @@ Describe a user
 List all users
 
 **Usage:** `adpt user list`
+
+
+
+## `adpt team`
+
+Manage teams
+
+**Usage:** `adpt team <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — Create a new team
+* `list` — List all teams
+
+
+
+## `adpt team create`
+
+Create a new team
+
+**Usage:** `adpt team create [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Team name
+
+###### **Options:**
+
+* `-k`, `--key <KEY>` — Team key (auto-generated from name if not provided)
+
+
+
+## `adpt team list`
+
+List all teams
+
+**Usage:** `adpt team list`
 
 
 
