@@ -50,6 +50,8 @@ const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    #[arg(long, hide = true)]
+    markdown_help: bool,
 }
 
 #[derive(Args)]
@@ -267,6 +269,10 @@ fn main() -> Result<()> {
     let _rt_guard = rt.enter();
     clap_complete::CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
+    if cli.markdown_help {
+        clap_markdown::print_help_markdown::<Cli>();
+        return Ok(());
+    }
     let _title_guard = TitleGuard::new(&format!("adpt - {}", cli.command.name()));
 
     rt.block_on(async {
