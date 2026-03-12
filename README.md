@@ -70,69 +70,9 @@ Store your API key in the system keyring:
 adpt set-api-key <your-api-key>
 ```
 
-### Running Recipes
+### Full command reference
 
-Run a recipe by its ID or key:
-
-```sh
-adpt run <recipe-key-or-id>
-```
-
-Run a recipe with parameters from a JSON file:
-
-```sh
-adpt run my-recipe --parameters params.json
-```
-
-Run a recipe with custom settings:
-
-```sh
-adpt run my-recipe --name "My Custom Run" --compute-pool gpu-pool --num-gpus 4
-```
-
-### Publishing Recipes
-
-Publish a recipe from a file or a directory containing a `main.py`:
-
-```sh
-adpt publish /path/to/recipe-directory
-```
-
-Publish a recipe with a custom name and key:
-
-```sh
-adpt publish /path/to/recipe --name "My Recipe" --key my-recipe-key
-```
-
-### Listing Recipes
-
-List all available recipes:
-
-```sh
-adpt recipes
-```
-
-### Uploading datasets
-
-Upload a dataset:
-
-```sh
-adpt upload /path/to/dataset
-```
-
-### Monitoring Jobs
-
-Get the status of a specific job:
-
-```sh
-adpt job <job-id>
-```
-
-Follow a job's progress until completion:
-
-```sh
-adpt job <job-id> --follow
-```
+For a complete list of commands see [[command-line-help-for-adpt]].
 
 ## Combining with other tools
 

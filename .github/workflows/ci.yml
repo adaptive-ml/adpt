@@ -40,7 +40,7 @@ jobs:
       - name: Check CLI help markdown is up-to-date
         run: |
           cargo run -- --markdown-help help > CommandLineHelp.md.new
-          if ! difft --display side-by-side-show-both CommandLineHelp.md CommandLineHelp.md.new; then
+          if ! difft --exit-code --display side-by-side-show-both CommandLineHelp.md CommandLineHelp.md.new; then
             echo "::error::CommandLineHelp.md is out of date. Run 'cargo run -- --markdown-help > CommandLineHelp.md' and commit the result."
             exit 1
           fi
