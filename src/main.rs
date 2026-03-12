@@ -31,8 +31,8 @@ use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
     terminal::TitleGuard,
     ui::{
-        AllModelsList, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ModelsList, ProgressBar,
-        RecipeList, SuccessMessage,
+        AllModelsList, Cell, Column, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ListConfig,
+        ModelsList, ProgressBar, RecipeList, SuccessMessage, render_list,
     },
 };
 
@@ -759,9 +759,35 @@ async fn run_recipe(client: &AdaptiveClient, project: &str, run_args: RunArgs) -
 async fn list_users(client: &AdaptiveClient) -> Result<()> {
     let users = client.list_users().await?;
 
-    for user in users {
-        println!("{}\t{}\t{}", user.id, user.email, user.name);
-    }
+    let config = ListConfig {
+        columns: vec![
+            Column {
+                header: "Id",
+                width: Some(36),
+            },
+            Column {
+                header: "Email",
+                width: Some(30),
+            },
+            Column {
+                header: "Name",
+                width: None,
+            },
+        ],
+        empty_message: "No users found",
+    };
+    let rows: Vec<Vec<Cell>> = users
+        .iter()
+        .map(|user| {
+            vec![
+                Cell::from(user.id.to_string()),
+                Cell::from(user.email.as_str()),
+                Cell::from(user.name.as_str()),
+            ]
+        })
+        .collect();
+    let mut el: AnyElement<'static> = render_list(config, rows).into();
+    el.print();
 
     Ok(())
 }
@@ -852,9 +878,35 @@ async fn create_role(
 async fn list_roles(client: &AdaptiveClient) -> Result<()> {
     let roles = client.list_roles().await?;
 
-    for role in roles {
-        println!("{}\t{}\t{}", role.id, role.key, role.name);
-    }
+    let config = ListConfig {
+        columns: vec![
+            Column {
+                header: "Id",
+                width: Some(36),
+            },
+            Column {
+                header: "Key",
+                width: Some(20),
+            },
+            Column {
+                header: "Name",
+                width: None,
+            },
+        ],
+        empty_message: "No roles found",
+    };
+    let rows: Vec<Vec<Cell>> = roles
+        .iter()
+        .map(|role| {
+            vec![
+                Cell::from(role.id.to_string()),
+                Cell::from(role.key.as_str()),
+                Cell::from(role.name.as_str()),
+            ]
+        })
+        .collect();
+    let mut el: AnyElement<'static> = render_list(config, rows).into();
+    el.print();
 
     Ok(())
 }
