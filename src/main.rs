@@ -149,6 +149,15 @@ enum TeamCommands {
         #[arg(short, long)]
         key: Option<String>,
     },
+    /// Add a user to a team
+    AddMember {
+        /// User ID or email
+        user: String,
+        /// Team ID or key
+        team: String,
+        /// Role ID or key
+        role: String,
+    },
     /// List all teams
     List,
 }
@@ -347,6 +356,9 @@ fn main() -> Result<()> {
                     Commands::Team { command } => match command {
                         TeamCommands::Create { name, key } => {
                             create_team(&client, &name, key.as_deref()).await
+                        }
+                        TeamCommands::AddMember { user, team, role } => {
+                            add_team_member(&client, &user, &team, &role).await
                         }
                         TeamCommands::List => list_teams(&client).await,
                     },
@@ -798,6 +810,26 @@ async fn create_team(client: &AdaptiveClient, name: &str, key: Option<&str>) -> 
         );
     } else {
         println!("{}", response.id);
+    }
+
+    Ok(())
+}
+
+async fn add_team_member(
+    client: &AdaptiveClient,
+    user: &str,
+    team: &str,
+    role: &str,
+) -> Result<()> {
+    let response = client.add_team_member(user, team, role).await?;
+
+    if io::stdout().is_terminal() {
+        println!(
+            "User {} ({}) added to team {} ({}) with role {}",
+            response.user.name, response.user.email, response.team.name, response.team.key, response.role.name
+        );
+    } else {
+        println!("{}", response.user.id);
     }
 
     Ok(())
