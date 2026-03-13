@@ -73,7 +73,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           cargo generate-rpm
-          cp target/generate-rpm/${{ matrix.artifact_name }}.rpm adpt.x86_64.rpm
+          cp target/generate-rpm/*.rpm ./
 
       - name: Rename binary for release
         run: |
@@ -89,7 +89,7 @@ jobs:
       - name: Upload RPM
         uses: softprops/action-gh-release@v2
         with:
-          files: adpt.x86_64.rpm
+          files: "*.rpm"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
