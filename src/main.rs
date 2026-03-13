@@ -158,6 +158,13 @@ enum TeamCommands {
         /// Role ID or key
         role: String,
     },
+    /// Remove a user from a team
+    RemoveMember {
+        /// User ID or email
+        user: String,
+        /// Team ID or key
+        team: String,
+    },
     /// List all teams
     List,
 }
@@ -359,6 +366,9 @@ fn main() -> Result<()> {
                         }
                         TeamCommands::AddMember { user, team, role } => {
                             add_team_member(&client, &user, &team, &role).await
+                        }
+                        TeamCommands::RemoveMember { user, team } => {
+                            remove_team_member(&client, &user, &team).await
                         }
                         TeamCommands::List => list_teams(&client).await,
                     },
@@ -834,6 +844,21 @@ async fn add_team_member(
         );
     } else {
         println!("{}", response.user.id);
+    }
+
+    Ok(())
+}
+
+async fn remove_team_member(client: &AdaptiveClient, user: &str, team: &str) -> Result<()> {
+    let response = client.remove_team_member(user, team).await?;
+
+    if io::stdout().is_terminal() {
+        println!(
+            "User {} ({}) removed from team {}",
+            response.name, response.email, team
+        );
+    } else {
+        println!("{}", response.id);
     }
 
     Ok(())

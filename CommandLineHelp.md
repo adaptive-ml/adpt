@@ -28,6 +28,7 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt team`↴](#adpt-team)
 * [`adpt team create`↴](#adpt-team-create)
 * [`adpt team add-member`↴](#adpt-team-add-member)
+* [`adpt team remove-member`↴](#adpt-team-remove-member)
 * [`adpt team list`↴](#adpt-team-list)
 
 ## `adpt`
@@ -339,6 +340,7 @@ Manage teams
 
 * `create` — Create a new team
 * `add-member` — Add a user to a team
+* `remove-member` — Remove a user from a team
 * `list` — List all teams
 
 
@@ -370,6 +372,19 @@ Add a user to a team
 * `<USER>` — User ID or email
 * `<TEAM>` — Team ID or key
 * `<ROLE>` — Role ID or key
+
+
+
+## `adpt team remove-member`
+
+Remove a user from a team
+
+**Usage:** `adpt team remove-member <USER> <TEAM>`
+
+###### **Arguments:**
+
+* `<USER>` — User ID or email
+* `<TEAM>` — Team ID or key
 
 
 
