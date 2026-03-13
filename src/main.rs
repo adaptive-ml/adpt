@@ -881,7 +881,7 @@ async fn list_users(client: &AdaptiveClient) -> Result<()> {
         columns: vec![
             Column {
                 header: "Id",
-                width: Some(36),
+                width: Some(37),
             },
             Column {
                 header: "Email",
@@ -889,6 +889,10 @@ async fn list_users(client: &AdaptiveClient) -> Result<()> {
             },
             Column {
                 header: "Name",
+                width: Some(30),
+            },
+            Column {
+                header: "Teams",
                 width: None,
             },
         ],
@@ -901,6 +905,13 @@ async fn list_users(client: &AdaptiveClient) -> Result<()> {
                 Cell::from(user.id.to_string()),
                 Cell::from(user.email.as_str()),
                 Cell::from(user.name.as_str()),
+                Cell::from(
+                    user.teams
+                        .iter()
+                        .map(|t| format!("{} ({})", t.team.name, t.role.name))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                ),
             ]
         })
         .collect();
@@ -929,6 +940,17 @@ async fn describe_user(client: &AdaptiveClient, id_or_email: &str) -> Result<()>
                 "Created:   {}",
                 humantime::format_rfc3339(user.created_at.0)
             );
+            if user.teams.is_empty() {
+                println!("Teams:     (none)");
+            } else {
+                for (i, membership) in user.teams.iter().enumerate() {
+                    let label = if i == 0 { "Teams:" } else { "      " };
+                    println!(
+                        "{}     {} ({})",
+                        label, membership.team.name, membership.role.name
+                    );
+                }
+            }
             Ok(())
         }
         None => bail!("User not found: {}", id_or_email),
@@ -1000,7 +1022,7 @@ async fn list_roles(client: &AdaptiveClient) -> Result<()> {
         columns: vec![
             Column {
                 header: "Id",
-                width: Some(36),
+                width: Some(37),
             },
             Column {
                 header: "Key",
