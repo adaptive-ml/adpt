@@ -75,8 +75,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           cargo generate-rpm
-          ls target/generate-rpm/
-          cp target/generate-rpm/${{ matrix.artifact_name }}.rpm adpt.x86_64.rpm
+          cp target/generate-rpm/*.rpm ./
 
       - name: Rename binary for release
         run: |
