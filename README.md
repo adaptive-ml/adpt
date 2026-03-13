@@ -20,6 +20,11 @@ On x86-based Windows winget can be used:
 winget install --source winget AdaptiveML.adpt
 ```
 
+### Fedora
+
+A RPM is attached to the latest release on GitHub, simply download it and
+install via DNF.
+
 ### Everything else
 
 ```sh
