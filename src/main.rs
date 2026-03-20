@@ -95,6 +95,22 @@ enum RoleCommands {
     },
     /// List all roles
     List,
+    /// Add permissions to a role
+    AddPermission {
+        /// Role ID or key
+        role: String,
+        /// Permissions to add
+        #[arg(required = true, num_args = 1..)]
+        permissions: Vec<String>,
+    },
+    /// Remove permissions from a role
+    RemovePermission {
+        /// Role ID or key
+        role: String,
+        /// Permissions to remove
+        #[arg(required = true, num_args = 1..)]
+        permissions: Vec<String>,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -347,6 +363,12 @@ fn main() -> Result<()> {
                             describe_role(&client, &id_or_key).await
                         }
                         RoleCommands::List => list_roles(&client).await,
+                        RoleCommands::AddPermission { role, permissions } => {
+                            add_role_permission(&client, &role, permissions).await
+                        }
+                        RoleCommands::RemovePermission { role, permissions } => {
+                            remove_role_permission(&client, &role, permissions).await
+                        }
                     },
                     Commands::User { command } => match command {
                         UserCommands::Create { name, email, user_type } => {
@@ -1076,6 +1098,75 @@ async fn describe_role(client: &AdaptiveClient, id_or_key: &str) -> Result<()> {
         }
         None => bail!("Role not found: {}", id_or_key),
     }
+}
+
+async fn add_role_permission(
+    client: &AdaptiveClient,
+    id_or_key: &str,
+    permissions: Vec<String>,
+) -> Result<()> {
+    let roles = client.list_roles().await?;
+
+    let role = if let Ok(uuid) = id_or_key.parse::<Uuid>() {
+        roles.into_iter().find(|r| r.id == uuid)
+    } else {
+        roles.into_iter().find(|r| r.key == id_or_key)
+    };
+
+    let role = role.ok_or_else(|| anyhow::anyhow!("Role not found: {}", id_or_key))?;
+
+    let mut current = role.permissions.clone();
+    for perm in &permissions {
+        if !current.contains(perm) {
+            current.push(perm.clone());
+        }
+    }
+
+    let updated = client.update_role(id_or_key, None, Some(current)).await?;
+
+    if io::stdout().is_terminal() {
+        let mut perms = updated.permissions.clone();
+        perms.sort();
+        println!("Updated permissions for role '{}': {}", updated.key, perms.join(", "));
+    } else {
+        println!("{}", updated.id);
+    }
+
+    Ok(())
+}
+
+async fn remove_role_permission(
+    client: &AdaptiveClient,
+    id_or_key: &str,
+    permissions: Vec<String>,
+) -> Result<()> {
+    let roles = client.list_roles().await?;
+
+    let role = if let Ok(uuid) = id_or_key.parse::<Uuid>() {
+        roles.into_iter().find(|r| r.id == uuid)
+    } else {
+        roles.into_iter().find(|r| r.key == id_or_key)
+    };
+
+    let role = role.ok_or_else(|| anyhow::anyhow!("Role not found: {}", id_or_key))?;
+
+    let current: Vec<String> = role
+        .permissions
+        .into_iter()
+        .filter(|p| !permissions.contains(p))
+        .collect();
+
+    let updated = client.update_role(id_or_key, None, Some(current)).await?;
+
+    if io::stdout().is_terminal() {
+        let mut perms = updated.permissions.clone();
+        perms.sort();
+        println!("Updated permissions for role '{}': {}", updated.key, perms.join(", "));
+    } else {
+        println!("{}", updated.id);
+    }
+
+    Ok(())
 }
 
 async fn list_jobs(client: &AdaptiveClient, project: Option<String>) -> Result<()> {
