@@ -230,6 +230,12 @@ enum Commands {
         /// Recipe key
         #[arg(short, long)]
         key: Option<String>,
+        /// Custom entrypoint file (relative path within directory)
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        entrypoint: Option<String>,
+        /// Custom config entrypoint file (relative path within directory)
+        #[arg(short = 'c', long, value_hint = ValueHint::FilePath)]
+        entrypoint_config: Option<String>,
         /// Update existing recipe if it exists
         #[arg(short, long)]
         force: bool,
@@ -332,8 +338,10 @@ fn main() -> Result<()> {
                                         recipe,
                                         name,
                                         key,
+                                        entrypoint,
+                                        entrypoint_config,
                                         force,
-                                    } => publish_recipe(&client, &load_project(project), name, key, recipe, force).await,
+                                    } => publish_recipe(&client, &load_project(project), name, key, recipe, entrypoint, entrypoint_config, force).await,
                     Commands::Run { project, args } => {
                                         run_recipe(&client, &load_project(project), args).await
                                     }
@@ -545,24 +553,20 @@ async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
 }
 
 fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P) -> Result<TempPath> {
-    if recipe_dir.as_ref().join("main.py").is_file() {
-        let tmp_file = NamedTempFile::new()?;
+    let tmp_file = NamedTempFile::new()?;
 
-        {
-            let mut zip_file = ZipWriter::new(&tmp_file);
-            let options =
-                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-            zip_file.create_from_directory_with_options(
-                &recipe_dir.as_ref().to_owned(),
-                |_| options,
-                &ZipIgnoreEntryHandler::new(),
-            )?;
-        }
-
-        Ok(tmp_file.into_temp_path())
-    } else {
-        bail!("Recipe directory must contain a main.py file");
+    {
+        let mut zip_file = ZipWriter::new(&tmp_file);
+        let options =
+            SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        zip_file.create_from_directory_with_options(
+            &recipe_dir.as_ref().to_owned(),
+            |_| options,
+            &ZipIgnoreEntryHandler::new(),
+        )?;
     }
+
+    Ok(tmp_file.into_temp_path())
 }
 
 async fn publish_recipe<P: AsRef<Path>>(
@@ -571,6 +575,8 @@ async fn publish_recipe<P: AsRef<Path>>(
     name: Option<String>,
     key: Option<String>,
     recipe: P,
+    entrypoint: Option<String>,
+    entrypoint_config: Option<String>,
     force: bool,
 ) -> Result<()> {
     let name = name.unwrap_or_else(|| {
@@ -607,6 +613,8 @@ async fn publish_recipe<P: AsRef<Path>>(
                 None,
                 None,
                 Some(recipe_path.as_ref()),
+                entrypoint,
+                entrypoint_config,
             )
             .await?;
 
@@ -614,9 +622,13 @@ async fn publish_recipe<P: AsRef<Path>>(
     } else {
         let response = if recipe.as_ref().is_dir() {
             let recipe = zip_recipe_dir(recipe)?;
-            client.publish_recipe(project, &name, &key, &recipe).await?
+            client
+                .publish_recipe(project, &name, &key, &recipe, entrypoint, entrypoint_config)
+                .await?
         } else {
-            client.publish_recipe(project, &name, &key, recipe).await?
+            client
+                .publish_recipe(project, &name, &key, recipe, entrypoint, entrypoint_config)
+                .await?
         };
         (response.id, response.key)
     };
