@@ -279,6 +279,7 @@ impl ModelDisplay for ListModelsProjectModelServices {
             list_models::ModelServiceStatus::OFFLINE => "Offline".to_string(),
             list_models::ModelServiceStatus::TURNED_OFF => "Turned Off".to_string(),
             list_models::ModelServiceStatus::ERROR => "Error".to_string(),
+            list_models::ModelServiceStatus::UNHEALTHY => "Unhealthy".to_string(),
             list_models::ModelServiceStatus::Other(ref other) => other.to_owned(),
         }
     }
@@ -308,6 +309,7 @@ impl ModelDisplay for ListAllModelsModels {
                 list_all_models::ModelOnline::OFFLINE => "Offline".to_string(),
                 list_all_models::ModelOnline::PENDING => "Pending".to_string(),
                 list_all_models::ModelOnline::ERROR => "Error".to_string(),
+                list_all_models::ModelOnline::UNHEALTHY => "Unhealthy".to_string(),
                 list_all_models::ModelOnline::Other(other) => other.to_owned(),
             }
         }

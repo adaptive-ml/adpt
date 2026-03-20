@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "adaptive-client-rust"
-version = "0.13.4"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a2f0e4e8b2fe57c9caa7f7299cc3946d6b15f8943714a678ac859976bff3a3"
+checksum = "a14f0ac947c12043bd33608393db00dc6744370402b89fceb011e3a0ab116204"
 dependencies = [
  "async-stream",
  "futures",
