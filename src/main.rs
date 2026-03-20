@@ -530,7 +530,11 @@ async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
     Ok(())
 }
 
-fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P) -> Result<TempPath> {
+fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P, entrypoint: &Option<String>) -> Result<TempPath> {
+    if entrypoint.is_none() && !recipe_dir.as_ref().join("main.py").is_file() {
+        bail!("Recipe directory must contain a main.py file, or specify --entrypoint");
+    }
+
     let tmp_file = NamedTempFile::new()?;
 
     {
@@ -578,7 +582,7 @@ async fn publish_recipe<P: AsRef<Path>>(
         }
 
         let recipe_path: Box<dyn AsRef<Path> + Send> = if recipe.as_ref().is_dir() {
-            Box::new(zip_recipe_dir(&recipe)?)
+            Box::new(zip_recipe_dir(&recipe, &entrypoint)?)
         } else {
             Box::new(recipe.as_ref().to_path_buf())
         };
@@ -599,7 +603,7 @@ async fn publish_recipe<P: AsRef<Path>>(
         (response.id, response.key)
     } else {
         let response = if recipe.as_ref().is_dir() {
-            let recipe = zip_recipe_dir(recipe)?;
+            let recipe = zip_recipe_dir(recipe, &entrypoint)?;
             client
                 .publish_recipe(project, &name, &key, &recipe, entrypoint, entrypoint_config)
                 .await?
