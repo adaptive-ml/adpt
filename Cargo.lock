@@ -56,7 +56,7 @@ dependencies = [
  "toml",
  "url",
  "uuid",
- "zip",
+ "zip 6.0.0",
  "zip-extensions",
 ]
 
@@ -3270,6 +3270,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "typed-path"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
+
+[[package]]
 name = "typenum"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4146,13 +4152,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "zip-extensions"
-version = "0.13.1"
+name = "zip"
+version = "8.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9bb4da4a220bfb79c2b7bfa88466181778892ddaffaca9f06d5e9cc5de0b46f"
+checksum = "5c546feb4481b0fbafb4ef0d79b6204fc41c6f9884b1b73b1d73f82442fc0845"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "indexmap",
+ "memchr",
+ "typed-path",
+ "zopfli",
+]
+
+[[package]]
+name = "zip-extensions"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "285251480403d7097be64d5c33518279ecf5f816d5ebe403c476e45ea16c5628"
 dependencies = [
  "ignore",
- "zip",
+ "zip 8.3.1",
 ]
 
 [[package]]
