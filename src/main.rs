@@ -1127,7 +1127,11 @@ async fn add_role_permission(
     if io::stdout().is_terminal() {
         let mut perms = updated.permissions.clone();
         perms.sort();
-        println!("Updated permissions for role '{}': {}", updated.key, perms.join(", "));
+        println!(
+            "Updated permissions for role '{}': {}",
+            updated.key,
+            perms.join(", ")
+        );
     } else {
         println!("{}", updated.id);
     }
@@ -1161,7 +1165,11 @@ async fn remove_role_permission(
     if io::stdout().is_terminal() {
         let mut perms = updated.permissions.clone();
         perms.sort();
-        println!("Updated permissions for role '{}': {}", updated.key, perms.join(", "));
+        println!(
+            "Updated permissions for role '{}': {}",
+            updated.key,
+            perms.join(", ")
+        );
     } else {
         println!("{}", updated.id);
     }
