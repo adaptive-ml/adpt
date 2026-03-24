@@ -1154,11 +1154,8 @@ async fn remove_role_permission(
 
     let role = role.ok_or_else(|| anyhow::anyhow!("Role not found: {}", id_or_key))?;
 
-    let current: Vec<String> = role
-        .permissions
-        .into_iter()
-        .filter(|p| !permissions.contains(p))
-        .collect();
+    let mut current: Vec<String> = role.permissions;
+    current.retain(|p| !permissions.contains(p));
 
     let updated = client.update_role(id_or_key, None, Some(current)).await?;
 
