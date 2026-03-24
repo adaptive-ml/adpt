@@ -20,6 +20,8 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt role create`↴](#adpt-role-create)
 * [`adpt role describe`↴](#adpt-role-describe)
 * [`adpt role list`↴](#adpt-role-list)
+* [`adpt role add-permission`↴](#adpt-role-add-permission)
+* [`adpt role remove-permission`↴](#adpt-role-remove-permission)
 * [`adpt user`↴](#adpt-user)
 * [`adpt user create`↴](#adpt-user-create)
 * [`adpt user delete`↴](#adpt-user-delete)
@@ -221,6 +223,8 @@ Manage roles
 * `create` — Create a new role
 * `describe` — Describe a role
 * `list` — List all roles
+* `add-permission` — Add permissions to a role
+* `remove-permission` — Remove permissions from a role
 
 
 
@@ -258,6 +262,32 @@ Describe a role
 List all roles
 
 **Usage:** `adpt role list`
+
+
+
+## `adpt role add-permission`
+
+Add permissions to a role
+
+**Usage:** `adpt role add-permission <ROLE> <PERMISSIONS>...`
+
+###### **Arguments:**
+
+* `<ROLE>` — Role ID or key
+* `<PERMISSIONS>` — Permissions to add
+
+
+
+## `adpt role remove-permission`
+
+Remove permissions from a role
+
+**Usage:** `adpt role remove-permission <ROLE> <PERMISSIONS>...`
+
+###### **Arguments:**
+
+* `<ROLE>` — Role ID or key
+* `<PERMISSIONS>` — Permissions to remove
 
 
 
