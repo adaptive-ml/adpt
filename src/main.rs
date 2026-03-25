@@ -215,10 +215,10 @@ enum Commands {
         #[arg(short, long)]
         key: Option<String>,
         /// Custom entrypoint file (relative path within directory)
-        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        #[arg(short, long, value_hint = ValueHint::FilePath, value_parser = validate_entrypoint)]
         entrypoint: Option<String>,
         /// Custom config entrypoint file (relative path within directory)
-        #[arg(short = 'c', long, value_hint = ValueHint::FilePath)]
+        #[arg(short = 'c', long, value_hint = ValueHint::FilePath, value_parser = validate_entrypoint)]
         entrypoint_config: Option<String>,
         /// Update existing recipe if it exists
         #[arg(short, long)]
@@ -528,6 +528,20 @@ async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
     element!(RecipeList(recipes: recipes)).print();
 
     Ok(())
+}
+
+fn validate_entrypoint(s: &str) -> Result<String, String> {
+    let path = Path::new(s);
+    if path.is_absolute() {
+        return Err("entrypoint must be a relative path".into());
+    }
+    if path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        return Err("entrypoint must not contain '..' components".into());
+    }
+    if path.extension().and_then(|e| e.to_str()) != Some("py") {
+        return Err("entrypoint must be a Python file (.py)".into());
+    }
+    Ok(s.to_string())
 }
 
 fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P, entrypoint: &Option<String>, entrypoint_config: &Option<String>) -> Result<TempPath> {
