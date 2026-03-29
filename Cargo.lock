@@ -10,7 +10,7 @@ checksum = "a14f0ac947c12043bd33608393db00dc6744370402b89fceb011e3a0ab116204"
 dependencies = [
  "async-stream",
  "futures",
- "graphql_client",
+ "graphql_client 0.15.0",
  "reqwest",
  "serde",
  "serde_json",
@@ -42,7 +42,7 @@ dependencies = [
  "email_address",
  "envy",
  "futures",
- "graphql_client",
+ "graphql_client 0.16.0",
  "humantime",
  "iocraft",
  "keyring",
@@ -1241,7 +1241,18 @@ version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83ce10ae0a8ba29e295f9296a4a400a5222b1aa0e65a72d66c5e489ed17fa217"
 dependencies = [
- "graphql_query_derive",
+ "graphql_query_derive 0.15.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "graphql_client"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0f04840854efa7b06377d86fab117f598f5f5c95727067463417ccaf8aa7635"
+dependencies = [
+ "graphql_query_derive 0.16.0",
  "serde",
  "serde_json",
 ]
@@ -1264,12 +1275,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "graphql_client_codegen"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa0141e66c8d0302f8a586df12ad5d0cf87c0fa8c391f2f5b5dc296312dce569"
+dependencies = [
+ "graphql-introspection-query",
+ "graphql-parser",
+ "heck",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "graphql_query_derive"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b684c77d1b5f9c6006068852e0e0e80c6df3ef85c24fe81ef26fbadbd595af77"
 dependencies = [
- "graphql_client_codegen",
+ "graphql_client_codegen 0.15.0",
+ "proc-macro2",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "graphql_query_derive"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e16ecf9bb87a6760cf5227f66cbe48bad7b89505aeb002aa9439ea090e6038a3"
+dependencies = [
+ "graphql_client_codegen 0.16.0",
  "proc-macro2",
  "syn 2.0.117",
 ]
