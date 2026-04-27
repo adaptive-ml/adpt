@@ -18,6 +18,7 @@ use std::{
     time::SystemTime,
 };
 use tempfile::{NamedTempFile, TempPath};
+use typed_path::Utf8TypedPath;
 use tokio::{runtime::Handle, sync::watch};
 use url::Url;
 use uuid::Uuid;
@@ -230,11 +231,11 @@ enum Commands {
         /// Recipe key
         #[arg(short, long)]
         key: Option<String>,
-        /// Custom entrypoint file (relative path within directory)
-        #[arg(short, long, value_hint = ValueHint::FilePath, value_parser = validate_entrypoint)]
+        /// Custom entrypoint file
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
         entrypoint: Option<String>,
-        /// Custom config entrypoint file (relative path within directory)
-        #[arg(short = 'c', long, value_hint = ValueHint::FilePath, value_parser = validate_entrypoint)]
+        /// Custom config entrypoint file
+        #[arg(short = 'c', long, value_hint = ValueHint::FilePath)]
         entrypoint_config: Option<String>,
         /// Update existing recipe if it exists
         #[arg(short, long)]
@@ -552,19 +553,6 @@ async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_entrypoint(s: &str) -> Result<String, String> {
-    let path = Path::new(s);
-    if path.is_absolute() {
-        return Err("entrypoint must be a relative path".into());
-    }
-    if path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
-        return Err("entrypoint must not contain '..' components".into());
-    }
-    if path.extension().and_then(|e| e.to_str()) != Some("py") {
-        return Err("entrypoint must be a Python file (.py)".into());
-    }
-    Ok(s.to_string())
-}
 
 fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P, entrypoint: &Option<String>, entrypoint_config: &Option<String>) -> Result<TempPath> {
     if let Some(ep) = entrypoint {
@@ -597,6 +585,29 @@ fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P, entrypoint: &Option<String>, en
     Ok(tmp_file.into_temp_path())
 }
 
+fn resolve_entrypoint(recipe_dir: &Path, entrypoint: Option<String>) -> Result<Option<String>> {
+    let Some(ep) = entrypoint else {
+        return Ok(None);
+    };
+
+    let ep_path = Path::new(&ep);
+    if ep_path.extension().and_then(|e| e.to_str()) != Some("py") {
+        bail!("entrypoint must be a Python file (.py)");
+    }
+
+    let relative = ep_path
+        .strip_prefix(recipe_dir)
+        .unwrap_or(ep_path);
+
+    let resolved = recipe_dir.join(relative);
+    if !resolved.starts_with(recipe_dir) {
+        bail!("entrypoint must be contained within the recipe directory");
+    }
+
+    let unix = Utf8TypedPath::derive(&relative.to_string_lossy()).with_unix_encoding();
+    Ok(Some(unix.to_string()))
+}
+
 async fn publish_recipe<P: AsRef<Path>>(
     client: &AdaptiveClient,
     project: &str,
@@ -607,6 +618,9 @@ async fn publish_recipe<P: AsRef<Path>>(
     entrypoint_config: Option<String>,
     force: bool,
 ) -> Result<()> {
+    let entrypoint = resolve_entrypoint(recipe.as_ref(), entrypoint)?;
+    let entrypoint_config = resolve_entrypoint(recipe.as_ref(), entrypoint_config)?;
+
     let name = name.unwrap_or_else(|| {
         recipe
             .as_ref()
