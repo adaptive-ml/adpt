@@ -18,6 +18,7 @@ use std::{
     time::SystemTime,
 };
 use tempfile::{NamedTempFile, TempPath};
+use typed_path::Utf8TypedPath;
 use tokio::{runtime::Handle, sync::watch};
 use url::Url;
 use uuid::Uuid;
@@ -230,6 +231,12 @@ enum Commands {
         /// Recipe key
         #[arg(short, long)]
         key: Option<String>,
+        /// Custom entrypoint file
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        entrypoint: Option<String>,
+        /// Custom config entrypoint file
+        #[arg(short = 'c', long, value_hint = ValueHint::FilePath)]
+        entrypoint_config: Option<String>,
         /// Update existing recipe if it exists
         #[arg(short, long)]
         force: bool,
@@ -332,8 +339,10 @@ fn main() -> Result<()> {
                                         recipe,
                                         name,
                                         key,
+                                        entrypoint,
+                                        entrypoint_config,
                                         force,
-                                    } => publish_recipe(&client, &load_project(project), name, key, recipe, force).await,
+                                    } => publish_recipe(&client, &load_project(project), name, key, recipe, entrypoint, entrypoint_config, force).await,
                     Commands::Run { project, args } => {
                                         run_recipe(&client, &load_project(project), args).await
                                     }
@@ -544,25 +553,59 @@ async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
     Ok(())
 }
 
-fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P) -> Result<TempPath> {
-    if recipe_dir.as_ref().join("main.py").is_file() {
-        let tmp_file = NamedTempFile::new()?;
 
-        {
-            let mut zip_file = ZipWriter::new(&tmp_file);
-            let options =
-                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-            zip_file.create_from_directory_with_options(
-                &recipe_dir.as_ref().to_owned(),
-                |_| options,
-                &ZipIgnoreEntryHandler::new(),
-            )?;
+fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P, entrypoint: &Option<String>, entrypoint_config: &Option<String>) -> Result<TempPath> {
+    if let Some(ep) = entrypoint {
+        if !recipe_dir.as_ref().join(ep).is_file() {
+            bail!("Entrypoint file '{ep}' does not exist in recipe directory");
         }
-
-        Ok(tmp_file.into_temp_path())
-    } else {
-        bail!("Recipe directory must contain a main.py file");
+    } else if !recipe_dir.as_ref().join("main.py").is_file() {
+        bail!("Recipe directory must contain a main.py file, or specify --entrypoint");
     }
+
+    if let Some(ep) = entrypoint_config {
+        if !recipe_dir.as_ref().join(ep).is_file() {
+            bail!("Config entrypoint file '{ep}' does not exist in recipe directory");
+        }
+    }
+
+    let tmp_file = NamedTempFile::new()?;
+
+    {
+        let mut zip_file = ZipWriter::new(&tmp_file);
+        let options =
+            SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        zip_file.create_from_directory_with_options(
+            &recipe_dir.as_ref().to_owned(),
+            |_| options,
+            &ZipIgnoreEntryHandler::new(),
+        )?;
+    }
+
+    Ok(tmp_file.into_temp_path())
+}
+
+fn resolve_entrypoint(recipe_dir: &Path, entrypoint: Option<String>) -> Result<Option<String>> {
+    let Some(ep) = entrypoint else {
+        return Ok(None);
+    };
+
+    let ep_path = Path::new(&ep);
+    if ep_path.extension().and_then(|e| e.to_str()) != Some("py") {
+        bail!("entrypoint must be a Python file (.py)");
+    }
+
+    let relative = ep_path
+        .strip_prefix(recipe_dir)
+        .unwrap_or(ep_path);
+
+    let resolved = recipe_dir.join(relative);
+    if !resolved.starts_with(recipe_dir) {
+        bail!("entrypoint must be contained within the recipe directory");
+    }
+
+    let unix = Utf8TypedPath::derive(&relative.to_string_lossy()).with_unix_encoding();
+    Ok(Some(unix.to_string()))
 }
 
 async fn publish_recipe<P: AsRef<Path>>(
@@ -571,8 +614,13 @@ async fn publish_recipe<P: AsRef<Path>>(
     name: Option<String>,
     key: Option<String>,
     recipe: P,
+    entrypoint: Option<String>,
+    entrypoint_config: Option<String>,
     force: bool,
 ) -> Result<()> {
+    let entrypoint = resolve_entrypoint(recipe.as_ref(), entrypoint)?;
+    let entrypoint_config = resolve_entrypoint(recipe.as_ref(), entrypoint_config)?;
+
     let name = name.unwrap_or_else(|| {
         recipe
             .as_ref()
@@ -594,7 +642,7 @@ async fn publish_recipe<P: AsRef<Path>>(
         }
 
         let recipe_path: Box<dyn AsRef<Path> + Send> = if recipe.as_ref().is_dir() {
-            Box::new(zip_recipe_dir(&recipe)?)
+            Box::new(zip_recipe_dir(&recipe, &entrypoint, &entrypoint_config)?)
         } else {
             Box::new(recipe.as_ref().to_path_buf())
         };
@@ -607,16 +655,22 @@ async fn publish_recipe<P: AsRef<Path>>(
                 None,
                 None,
                 Some(recipe_path.as_ref()),
+                entrypoint,
+                entrypoint_config,
             )
             .await?;
 
         (response.id, response.key)
     } else {
         let response = if recipe.as_ref().is_dir() {
-            let recipe = zip_recipe_dir(recipe)?;
-            client.publish_recipe(project, &name, &key, &recipe).await?
+            let recipe = zip_recipe_dir(recipe, &entrypoint, &entrypoint_config)?;
+            client
+                .publish_recipe(project, &name, &key, &recipe, entrypoint, entrypoint_config)
+                .await?
         } else {
-            client.publish_recipe(project, &name, &key, recipe).await?
+            client
+                .publish_recipe(project, &name, &key, recipe, entrypoint, entrypoint_config)
+                .await?
         };
         (response.id, response.key)
     };
