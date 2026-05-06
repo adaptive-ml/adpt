@@ -300,6 +300,15 @@ impl Commands {
     }
 }
 
+fn build_adaptive_client(base_url: Url, api_key: String) -> AdaptiveClient {
+    let inner = reqwest::Client::builder()
+        .user_agent(concat!("adpt/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .expect("Failed to build HTTP client");
+    let http_client = reqwest_middleware::ClientBuilder::new(inner).build();
+    AdaptiveClient::new(http_client, base_url, api_key, None)
+}
+
 fn main() -> Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -320,7 +329,7 @@ fn main() -> Result<()> {
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
             requires_api_key => {
                 let config = config::read_config()?;
-                let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+                let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
                 let default_project = config.default_project.clone();
 
                 let load_project = |maybe_project: Option<String>| {
@@ -696,7 +705,7 @@ fn recipe_key_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 
     let config = config::read_config().expect("Failed to read config");
 
-    let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+    let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
 
     let handle = Handle::current();
     let recipes = handle
@@ -722,7 +731,7 @@ fn project_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 
     let config = config::read_config().expect("Failed to read config");
 
-    let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+    let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
 
     let handle = Handle::current();
     let projects = handle.block_on(client.list_projects()).unwrap();
@@ -744,7 +753,7 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 
     let config = config::read_config().expect("Failed to read config");
 
-    let client = AdaptiveClient::new(config.adaptive_base_url, config.adaptive_api_key);
+    let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
 
     let handle = Handle::current();
     let pools = handle.block_on(client.list_pools()).unwrap();
