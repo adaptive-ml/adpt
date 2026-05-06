@@ -575,10 +575,10 @@ fn zip_recipe_dir<P: AsRef<Path>>(
         bail!("Recipe directory must contain a main.py file, or specify --entrypoint");
     }
 
-    if let Some(ep) = entrypoint_config {
-        if !recipe_dir.as_ref().join(ep).is_file() {
-            bail!("Config entrypoint file '{ep}' does not exist in recipe directory");
-        }
+    if let Some(ep) = entrypoint_config
+        && !recipe_dir.as_ref().join(ep).is_file()
+    {
+        bail!("Config entrypoint file '{ep}' does not exist in recipe directory");
     }
 
     let tmp_file = NamedTempFile::new()?;
@@ -617,6 +617,7 @@ fn resolve_entrypoint(recipe_dir: &Path, entrypoint: Option<String>) -> Result<O
     Ok(Some(unix.to_string()))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn publish_recipe<P: AsRef<Path>>(
     client: &AdaptiveClient,
     project: &str,
