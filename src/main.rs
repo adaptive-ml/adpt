@@ -18,8 +18,8 @@ use std::{
     time::SystemTime,
 };
 use tempfile::{NamedTempFile, TempPath};
-use typed_path::Utf8TypedPath;
 use tokio::{runtime::Handle, sync::watch};
+use typed_path::Utf8TypedPath;
 use url::Url;
 use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
@@ -562,8 +562,11 @@ async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
     Ok(())
 }
 
-
-fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P, entrypoint: &Option<String>, entrypoint_config: &Option<String>) -> Result<TempPath> {
+fn zip_recipe_dir<P: AsRef<Path>>(
+    recipe_dir: P,
+    entrypoint: &Option<String>,
+    entrypoint_config: &Option<String>,
+) -> Result<TempPath> {
     if let Some(ep) = entrypoint {
         if !recipe_dir.as_ref().join(ep).is_file() {
             bail!("Entrypoint file '{ep}' does not exist in recipe directory");
@@ -582,8 +585,7 @@ fn zip_recipe_dir<P: AsRef<Path>>(recipe_dir: P, entrypoint: &Option<String>, en
 
     {
         let mut zip_file = ZipWriter::new(&tmp_file);
-        let options =
-            SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
         zip_file.create_from_directory_with_options(
             &recipe_dir.as_ref().to_owned(),
             |_| options,
@@ -604,9 +606,7 @@ fn resolve_entrypoint(recipe_dir: &Path, entrypoint: Option<String>) -> Result<O
         bail!("entrypoint must be a Python file (.py)");
     }
 
-    let relative = ep_path
-        .strip_prefix(recipe_dir)
-        .unwrap_or(ep_path);
+    let relative = ep_path.strip_prefix(recipe_dir).unwrap_or(ep_path);
 
     let resolved = recipe_dir.join(relative);
     if !resolved.starts_with(recipe_dir) {
