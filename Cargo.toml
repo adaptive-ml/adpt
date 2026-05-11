@@ -1,16 +1,18 @@
 [package]
 name = "adpt"
-version = "0.13.6"
+version = "0.14.0"
 edition = "2024"
 description = "A tool for interacting with the Adaptive platform"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-adaptive-client-rust = "0.14.0"
+adaptive-client-rust = "0.14.1"
 anyhow = "1.0.100"
 async-stream = "0.3"
 futures = "0.3"
-autumnus = { version = "0.7.6", default-features = false, features = ["lang-json"] }
+autumnus = { version = "0.7.6", default-features = false, features = [
+    "lang-json",
+] }
 clap = { version = "4.5.47", features = ["derive", "string"] }
 clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
 directories = "6.0.0"
@@ -18,8 +20,18 @@ dotenvy = "0.15.7"
 envy = "0.4.2"
 graphql_client = "0.15.0"
 iocraft = "0.8.0"
-keyring = { version = "3.6.3", features = ["apple-native", "crypto-rust", "sync-secret-service"] }
-reqwest = { version = "0.12.23", default-features = false, features = ["json", "multipart", "rustls-tls", "stream"] }
+keyring = { version = "3.6.3", features = [
+    "apple-native",
+    "crypto-rust",
+    "sync-secret-service",
+] }
+reqwest = { version = "0.12.23", default-features = false, features = [
+    "json",
+    "multipart",
+    "rustls-tls",
+    "stream",
+] }
+reqwest-middleware = "0.4"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.145"
 slug = "0.1.6"
@@ -30,10 +42,13 @@ toml = "1.0.0"
 url = { version = "2.5.7", features = ["serde"] }
 uuid = { version = "1.18.1", features = ["serde"] }
 zip = { version = "8.4.0", default-features = false, features = ["deflate"] }
-zip-extensions = { version = "0.14.1", default-features = false, features = ["deflate"] }
+zip-extensions = { version = "0.14.1", default-features = false, features = [
+    "deflate",
+] }
 humantime = "2.3.0"
 email_address = "0.2.9"
 clap-markdown = "0.1.5"
+typed-path = "0.12.3"
 
 [package.metadata.generate-rpm]
 assets = [

@@ -4,18 +4,22 @@ version = 4
 
 [[package]]
 name = "adaptive-client-rust"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a14f0ac947c12043bd33608393db00dc6744370402b89fceb011e3a0ab116204"
+checksum = "fd6020eba2a7cd5a4fc79092df363d7c793d7b4aee8bf637c4f043a3916aa450"
 dependencies = [
  "async-stream",
+ "backon",
+ "bytes",
  "futures",
  "graphql_client",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "url",
  "uuid",
 ]
@@ -28,7 +32,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "adpt"
-version = "0.13.6"
+version = "0.14.0"
 dependencies = [
  "adaptive-client-rust",
  "anyhow",
@@ -47,6 +51,7 @@ dependencies = [
  "iocraft",
  "keyring",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "slug",
@@ -54,6 +59,7 @@ dependencies = [
  "termwiz",
  "tokio",
  "toml",
+ "typed-path",
  "url",
  "uuid",
  "zip",
@@ -330,6 +336,17 @@ dependencies = [
  "tree-sitter-json",
  "tree-sitter-language",
  "v_htmlescape",
+]
+
+[[package]]
+name = "backon"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cffb0e931875b666fc4fcb20fee52e9bbd1ef836fd9e9e04ec21555f9f85f7ef"
+dependencies = [
+ "fastrand",
+ "gloo-timers",
+ "tokio",
 ]
 
 [[package]]
@@ -1214,6 +1231,18 @@ dependencies = [
  "log",
  "regex-automata",
  "regex-syntax",
+]
+
+[[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2443,6 +2472,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest-middleware"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57f17d28a6e6acfe1733fe24bcd30774d13bffa4b8a22535b4c8c98423088d4e"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "http",
+ "reqwest",
+ "serde",
+ "thiserror 1.0.69",
+ "tower-service",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2908,7 +2952,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "once_cell",
  "rustix",
  "windows-sys 0.59.0",

@@ -147,6 +147,8 @@ Upload recipe
 * `-p`, `--project <PROJECT>`
 * `-n`, `--name <NAME>` — Recipe name
 * `-k`, `--key <KEY>` — Recipe key
+* `-e`, `--entrypoint <ENTRYPOINT>` — Custom entrypoint file
+* `-c`, `--entrypoint-config <ENTRYPOINT_CONFIG>` — Custom config entrypoint file
 * `-f`, `--force` — Update existing recipe if it exists
 
 
