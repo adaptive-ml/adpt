@@ -10,6 +10,8 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt job`↴](#adpt-job)
 * [`adpt jobs`↴](#adpt-jobs)
 * [`adpt models`↴](#adpt-models)
+* [`adpt models list`↴](#adpt-models-list)
+* [`adpt models add`↴](#adpt-models-add)
 * [`adpt upload`↴](#adpt-upload)
 * [`adpt publish`↴](#adpt-publish)
 * [`adpt recipes`↴](#adpt-recipes)
@@ -45,7 +47,7 @@ A tool interacting with the Adaptive platform
 * `config` — Configure adpt interactively
 * `job` — Inspect job
 * `jobs` — List currently running jobs
-* `models` — List models
+* `models` — Manage models
 * `upload` — Upload dataset
 * `publish` — Upload recipe
 * `recipes` — List recipes
@@ -104,14 +106,43 @@ List currently running jobs
 
 ## `adpt models`
 
+Manage models
+
+**Usage:** `adpt models <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — List models
+* `add` — Add models from the organization to a project
+
+
+
+## `adpt models list`
+
 List models
 
-**Usage:** `adpt models [OPTIONS]`
+**Usage:** `adpt models list [OPTIONS]`
 
 ###### **Options:**
 
 * `-p`, `--project <PROJECT>`
 * `-a`, `--all` — List all models in the global model registry
+
+
+
+## `adpt models add`
+
+Add models from the organization to a project
+
+**Usage:** `adpt models add [OPTIONS] [MODELS]...`
+
+###### **Arguments:**
+
+* `<MODELS>` — One or more model IDs or keys to add to the project
+
+###### **Options:**
+
+* `-p`, `--project <PROJECT>`
 
 
 

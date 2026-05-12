@@ -187,6 +187,26 @@ enum TeamCommands {
 }
 
 #[derive(Subcommand)]
+enum ModelsCommands {
+    /// List models
+    List {
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
+        /// List all models in the global model registry
+        #[arg(short, long)]
+        all: bool,
+    },
+    /// Add models from the organization to a project
+    Add {
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
+        /// One or more model IDs or keys to add to the project
+        #[arg(add = ArgValueCompleter::new(model_completer))]
+        models: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum Commands {
     /// Cancel a job
     Cancel { id: Uuid },
@@ -201,13 +221,10 @@ enum Commands {
     },
     /// List currently running jobs
     Jobs,
-    /// List models
+    /// Manage models
     Models {
-        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
-        project: Option<String>,
-        /// List all models in the global model registry
-        #[arg(short, long)]
-        all: bool,
+        #[command(subcommand)]
+        command: ModelsCommands,
     },
     /// Upload dataset
     Upload {
@@ -357,16 +374,26 @@ fn main() -> Result<()> {
                                     }
                     Commands::Jobs => list_jobs(&client, None).await,
                     Commands::Cancel { id } => cancel_job(&client, id).await,
-                    Commands::Models { project, all } => {
-                                        if all {
-                                            list_all_models(&client).await
-                                        } else {
-                                            match project.or(config.default_project) {
-                                                Some(project) => list_models(&client, project).await,
-                                                None => list_all_models(&client).await,
-                                            }
-                                        }
-                                    }
+                    Commands::Models { command } => match command {
+                        ModelsCommands::List { project, all } => {
+                            if all {
+                                list_all_models(&client).await
+                            } else {
+                                match project.or(config.default_project) {
+                                    Some(project) => list_models(&client, project).await,
+                                    None => list_all_models(&client).await,
+                                }
+                            }
+                        }
+                        ModelsCommands::Add { project, models } => {
+                            add_models_to_project_cmd(
+                                &client,
+                                &load_project(project),
+                                models,
+                            )
+                            .await
+                        }
+                    },
                     Commands::Schema { project, recipe } => {
                                         print_schema(&client, load_project(project), recipe).await
                                     }
@@ -523,6 +550,30 @@ async fn print_schema(client: &AdaptiveClient, project: String, recipe: String) 
 async fn list_models(client: &AdaptiveClient, project: String) -> Result<()> {
     let model_services = client.list_models(project).await?;
     element!(ModelsList(model_services: model_services)).print();
+    Ok(())
+}
+
+async fn add_models_to_project_cmd(
+    client: &AdaptiveClient,
+    project: &str,
+    models: Vec<String>,
+) -> Result<()> {
+    if models.is_empty() {
+        return Err(anyhow::anyhow!("At least one model must be specified"));
+    }
+    let result = client.add_models_to_project(project, models).await?;
+
+    if result.success {
+        println!("Models added to project {}", project);
+    } else {
+        for failure in &result.failures {
+            eprintln!("Failed to add {}: {}", failure.model, failure.reason);
+        }
+        return Err(anyhow::anyhow!(
+            "{} model(s) failed to add",
+            result.failures.len()
+        ));
+    }
     Ok(())
 }
 
@@ -740,6 +791,28 @@ fn project_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     projects.into_iter().for_each(|project| {
         if project.key.starts_with(current) {
             completions.push(CompletionCandidate::new(project.key));
+        }
+    });
+
+    completions
+}
+
+fn model_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let Some(current) = current.to_str() else {
+        return completions;
+    };
+
+    let config = config::read_config().expect("Failed to read config");
+
+    let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
+
+    let handle = Handle::current();
+    let models = handle.block_on(client.list_all_models()).unwrap();
+
+    models.into_iter().for_each(|model| {
+        if model.key.starts_with(current) {
+            completions.push(CompletionCandidate::new(model.key));
         }
     });
 
