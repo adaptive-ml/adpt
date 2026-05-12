@@ -46,6 +46,7 @@ zip-extensions = { version = "0.14.1", default-features = false, features = [
     "deflate",
 ] }
 humantime = "2.3.0"
+ignore = "0.4.25"
 email_address = "0.2.9"
 clap-markdown = "0.1.5"
 typed-path = "0.12.3"

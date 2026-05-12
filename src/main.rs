@@ -24,9 +24,7 @@ use url::Url;
 use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
-use zip_extensions::{
-    zip_ignore_entry_handler::ZipIgnoreEntryHandler, zip_writer_extensions::ZipWriterExtensions,
-};
+use zip_extensions::zip_writer_extensions::ZipWriterExtensions;
 
 use crate::{
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
@@ -38,6 +36,7 @@ use crate::{
 };
 
 mod config;
+mod ignore_handler;
 mod json_schema;
 mod terminal;
 mod ui;
@@ -589,7 +588,7 @@ fn zip_recipe_dir<P: AsRef<Path>>(
         zip_file.create_from_directory_with_options(
             &recipe_dir.as_ref().to_owned(),
             |_| options,
-            &ZipIgnoreEntryHandler::new(),
+            &ignore_handler::IgnoreEntryHandler::new(),
         )?;
     }
 
