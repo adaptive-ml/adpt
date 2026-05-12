@@ -60,9 +60,7 @@ impl<H> IgnoreEntryHandler<H> {
             }
         }
 
-        builder
-            .build()
-            .map_err(|e| io::Error::other(e.to_string()))
+        builder.build().map_err(|e| io::Error::other(e.to_string()))
     }
 
     fn matcher_for_dir(&self, root: &Path, dir: &Path) -> io::Result<Gitignore> {
