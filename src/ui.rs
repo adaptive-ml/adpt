@@ -101,8 +101,7 @@ pub fn render_list(config: ListConfig, rows: Vec<Vec<Cell>>) -> impl Into<AnyEle
         ]
     } else {
         rows.into_iter()
-            .enumerate()
-            .map(|(i, row)| {
+            .map(|row| {
                 let cells: Vec<AnyElement<'static>> = row
                     .into_iter()
                     .enumerate()
@@ -141,7 +140,6 @@ pub fn render_list(config: ListConfig, rows: Vec<Vec<Cell>>) -> impl Into<AnyEle
                     })
                     .collect();
 
-                let _ = i;
                 element! {
                     View(
                         gap: 2u32,
