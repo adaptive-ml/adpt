@@ -277,6 +277,20 @@ enum Commands {
         #[command(subcommand)]
         command: TeamCommands,
     },
+    /// Manage the default project
+    Project {
+        #[command(subcommand)]
+        command: ProjectCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ProjectCommands {
+    /// Set the default project used when --project is not specified
+    Set {
+        #[arg(add = ArgValueCompleter::new(project_completer))]
+        project: String,
+    },
 }
 
 impl Commands {
@@ -296,6 +310,7 @@ impl Commands {
             Commands::Role { .. } => "role",
             Commands::User { .. } => "user",
             Commands::Team { .. } => "team",
+            Commands::Project { .. } => "project",
         }
     }
 }
@@ -327,6 +342,11 @@ fn main() -> Result<()> {
         match cli.command {
             Commands::Config => interactive_config(),
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
+            Commands::Project { command: ProjectCommands::Set { project } } => {
+                let mut file_config = config::read_config_file()?;
+                file_config.default_project = Some(project);
+                config::write_config(file_config)
+            }
             requires_api_key => {
                 let config = config::read_config()?;
                 let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
@@ -412,6 +432,7 @@ fn main() -> Result<()> {
                         }
                         TeamCommands::List => list_teams(&client).await,
                     },
+                    Commands::Project { .. } => unreachable!("handled above"),
                 }
             },
         }
