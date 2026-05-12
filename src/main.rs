@@ -291,6 +291,8 @@ enum ProjectCommands {
         #[arg(add = ArgValueCompleter::new(project_completer))]
         project: String,
     },
+    /// List all projects
+    List,
 }
 
 impl Commands {
@@ -432,7 +434,10 @@ fn main() -> Result<()> {
                         }
                         TeamCommands::List => list_teams(&client).await,
                     },
-                    Commands::Project { .. } => unreachable!("handled above"),
+                    Commands::Project { command } => match command {
+                        ProjectCommands::Set { .. } => unreachable!("handled above"),
+                        ProjectCommands::List => list_projects_cmd(&client).await,
+                    },
                 }
             },
         }
@@ -966,6 +971,48 @@ async fn remove_team_member(client: &AdaptiveClient, user: &str, team: &str) -> 
         );
     } else {
         println!("{}", response.id);
+    }
+
+    Ok(())
+}
+
+async fn list_projects_cmd(client: &AdaptiveClient) -> Result<()> {
+    let projects = client.list_projects().await?;
+
+    if io::stdout().is_terminal() {
+        let config = ListConfig {
+            columns: vec![
+                Column {
+                    header: "Id",
+                    width: Some(36),
+                },
+                Column {
+                    header: "Key",
+                    width: Some(25),
+                },
+                Column {
+                    header: "Name",
+                    width: None,
+                },
+            ],
+            empty_message: "No projects found",
+        };
+        let rows: Vec<Vec<Cell>> = projects
+            .iter()
+            .map(|p| {
+                vec![
+                    Cell::from(p.id.to_string()),
+                    Cell::from(p.key.as_str()),
+                    Cell::from(p.name.as_str()),
+                ]
+            })
+            .collect();
+        let mut el: AnyElement<'static> = render_list(config, rows).into();
+        el.print();
+    } else {
+        for p in &projects {
+            println!("{}", p.key);
+        }
     }
 
     Ok(())

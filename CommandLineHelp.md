@@ -34,6 +34,7 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt team list`↴](#adpt-team-list)
 * [`adpt project`↴](#adpt-project)
 * [`adpt project set`↴](#adpt-project-set)
+* [`adpt project list`↴](#adpt-project-list)
 
 ## `adpt`
 
@@ -440,6 +441,7 @@ Manage the default project
 ###### **Subcommands:**
 
 * `set` — Set the default project used when --project is not specified
+* `list` — List all projects
 
 
 
@@ -452,6 +454,14 @@ Set the default project used when --project is not specified
 ###### **Arguments:**
 
 * `<PROJECT>`
+
+
+
+## `adpt project list`
+
+List all projects
+
+**Usage:** `adpt project list`
 
 
 
