@@ -11,8 +11,10 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt jobs`↴](#adpt-jobs)
 * [`adpt models`↴](#adpt-models)
 * [`adpt upload`↴](#adpt-upload)
-* [`adpt publish`↴](#adpt-publish)
 * [`adpt recipes`↴](#adpt-recipes)
+* [`adpt recipes list`↴](#adpt-recipes-list)
+* [`adpt recipes delete`↴](#adpt-recipes-delete)
+* [`adpt recipes publish`↴](#adpt-recipes-publish)
 * [`adpt run`↴](#adpt-run)
 * [`adpt schema`↴](#adpt-schema)
 * [`adpt set-api-key`↴](#adpt-set-api-key)
@@ -47,8 +49,7 @@ A tool interacting with the Adaptive platform
 * `jobs` — List currently running jobs
 * `models` — List models
 * `upload` — Upload dataset
-* `publish` — Upload recipe
-* `recipes` — List recipes
+* `recipes` — Manage recipes
 * `run` — Run recipe
 * `schema` — Display the schema for inputs for a recipe
 * `set-api-key` — Store your API key in the OS keyring
@@ -132,11 +133,53 @@ Upload dataset
 
 
 
-## `adpt publish`
+## `adpt recipes`
+
+Manage recipes
+
+**Usage:** `adpt recipes <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — List recipes
+* `delete` — Delete a recipe
+* `publish` — Upload recipe
+
+
+
+## `adpt recipes list`
+
+List recipes
+
+**Usage:** `adpt recipes list [OPTIONS]`
+
+###### **Options:**
+
+* `-p`, `--project <PROJECT>`
+
+
+
+## `adpt recipes delete`
+
+Delete a recipe
+
+**Usage:** `adpt recipes delete [OPTIONS] <RECIPE>`
+
+###### **Arguments:**
+
+* `<RECIPE>` — Recipe ID or key
+
+###### **Options:**
+
+* `-p`, `--project <PROJECT>`
+
+
+
+## `adpt recipes publish`
 
 Upload recipe
 
-**Usage:** `adpt publish [OPTIONS] <RECIPE>`
+**Usage:** `adpt recipes publish [OPTIONS] <RECIPE>`
 
 ###### **Arguments:**
 
@@ -150,18 +193,6 @@ Upload recipe
 * `-e`, `--entrypoint <ENTRYPOINT>` — Custom entrypoint file
 * `-c`, `--entrypoint-config <ENTRYPOINT_CONFIG>` — Custom config entrypoint file
 * `-f`, `--force` — Update existing recipe if it exists
-
-
-
-## `adpt recipes`
-
-List recipes
-
-**Usage:** `adpt recipes [OPTIONS]`
-
-###### **Options:**
-
-* `-p`, `--project <PROJECT>`
 
 
 

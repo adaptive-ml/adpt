@@ -187,6 +187,45 @@ enum TeamCommands {
 }
 
 #[derive(Subcommand)]
+enum RecipesCommands {
+    /// List recipes
+    List {
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
+    },
+    /// Delete a recipe
+    Delete {
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
+        /// Recipe ID or key
+        #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
+        recipe: String,
+    },
+    /// Upload recipe
+    Publish {
+        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
+        project: Option<String>,
+        #[arg(value_hint = ValueHint::AnyPath)]
+        recipe: PathBuf,
+        /// Recipe name
+        #[arg(short, long)]
+        name: Option<String>,
+        /// Recipe key
+        #[arg(short, long)]
+        key: Option<String>,
+        /// Custom entrypoint file
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        entrypoint: Option<String>,
+        /// Custom config entrypoint file
+        #[arg(short = 'c', long, value_hint = ValueHint::FilePath)]
+        entrypoint_config: Option<String>,
+        /// Update existing recipe if it exists
+        #[arg(short, long)]
+        force: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum Commands {
     /// Cancel a job
     Cancel { id: Uuid },
@@ -219,32 +258,10 @@ enum Commands {
         #[arg(short, long)]
         name: Option<String>,
     },
-    /// Upload recipe
-    Publish {
-        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
-        project: Option<String>,
-        #[arg(value_hint = ValueHint::AnyPath)]
-        recipe: PathBuf,
-        /// Recipe name
-        #[arg(short, long)]
-        name: Option<String>,
-        /// Recipe key
-        #[arg(short, long)]
-        key: Option<String>,
-        /// Custom entrypoint file
-        #[arg(short, long, value_hint = ValueHint::FilePath)]
-        entrypoint: Option<String>,
-        /// Custom config entrypoint file
-        #[arg(short = 'c', long, value_hint = ValueHint::FilePath)]
-        entrypoint_config: Option<String>,
-        /// Update existing recipe if it exists
-        #[arg(short, long)]
-        force: bool,
-    },
-    /// List recipes
+    /// Manage recipes
     Recipes {
-        #[arg(short, long, add = ArgValueCompleter::new(project_completer))]
-        project: Option<String>,
+        #[command(subcommand)]
+        command: RecipesCommands,
     },
     /// Run recipe
     Run {
@@ -288,7 +305,6 @@ impl Commands {
             Commands::Jobs => "jobs",
             Commands::Models { .. } => "models",
             Commands::Upload { .. } => "upload",
-            Commands::Publish { .. } => "publish",
             Commands::Recipes { .. } => "recipes",
             Commands::Run { .. } => "run",
             Commands::Schema { .. } => "schema",
@@ -339,19 +355,24 @@ fn main() -> Result<()> {
                 };
 
                 match requires_api_key {
-                    Commands::Recipes { project } => {
-                                        list_recipes(&client, &load_project(project)).await
-                                    }
+                    Commands::Recipes { command } => match command {
+                        RecipesCommands::List { project } => {
+                            list_recipes(&client, &load_project(project)).await
+                        }
+                        RecipesCommands::Delete { project, recipe } => {
+                            delete_recipe(&client, &load_project(project), &recipe).await
+                        }
+                        RecipesCommands::Publish {
+                            project,
+                            recipe,
+                            name,
+                            key,
+                            entrypoint,
+                            entrypoint_config,
+                            force,
+                        } => publish_recipe(&client, &load_project(project), name, key, recipe, entrypoint, entrypoint_config, force).await,
+                    },
                     Commands::Job { id, follow } => get_job(Arc::new(client), id, follow).await,
-                    Commands::Publish {
-                                        project,
-                                        recipe,
-                                        name,
-                                        key,
-                                        entrypoint,
-                                        entrypoint_config,
-                                        force,
-                                    } => publish_recipe(&client, &load_project(project), name, key, recipe, entrypoint, entrypoint_config, force).await,
                     Commands::Run { project, args } => {
                                         run_recipe(&client, &load_project(project), args).await
                                     }
@@ -560,6 +581,20 @@ async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
     element!(RecipeList(recipes: recipes)).print();
 
     Ok(())
+}
+
+async fn delete_recipe(client: &AdaptiveClient, project: &str, recipe: &str) -> Result<()> {
+    let deleted = client.delete_recipe(project, recipe).await?;
+    if deleted {
+        println!("Recipe {} deleted from project {}", recipe, project);
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "Recipe {} was not deleted from project {}",
+            recipe,
+            project
+        ))
+    }
 }
 
 fn zip_recipe_dir<P: AsRef<Path>>(
