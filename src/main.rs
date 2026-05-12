@@ -557,7 +557,13 @@ async fn get_job(client: Arc<AdaptiveClient>, job_id: Uuid, follow: bool) -> Res
 async fn list_recipes(client: &AdaptiveClient, project: &str) -> Result<()> {
     let recipes = client.list_recipes(project).await?;
 
-    element!(RecipeList(recipes: recipes)).print();
+    if io::stdout().is_terminal() {
+        element!(RecipeList(recipes: recipes)).print();
+    } else {
+        for recipe in &recipes {
+            println!("{}", recipe.id);
+        }
+    }
 
     Ok(())
 }

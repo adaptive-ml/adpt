@@ -216,16 +216,27 @@ pub struct RecipeListProps {
 #[component]
 pub fn RecipeList(props: &RecipeListProps) -> impl Into<AnyElement<'static>> {
     let config = ListConfig {
-        columns: vec![Column {
-            header: "Name",
-            width: None,
-        }],
+        columns: vec![
+            Column {
+                header: "Id",
+                width: Some(36),
+            },
+            Column {
+                header: "Name",
+                width: None,
+            },
+        ],
         empty_message: "No recipes found",
     };
     let rows: Vec<Vec<Cell>> = props
         .recipes
         .iter()
-        .map(|recipe| vec![Cell::from(recipe.name.as_str())])
+        .map(|recipe| {
+            vec![
+                Cell::from(recipe.id.to_string()),
+                Cell::from(recipe.name.as_str()),
+            ]
+        })
         .collect();
     render_list(config, rows)
 }
