@@ -74,6 +74,15 @@ fn get_config_file_path() -> Result<PathBuf> {
     }
 }
 
+pub fn read_config_file() -> Result<ConfigFile> {
+    let config_file = get_config_file_path()?;
+    if let Ok(contents) = fs::read_to_string(config_file) {
+        Ok(toml::from_str(&contents)?)
+    } else {
+        Ok(ConfigFile::default())
+    }
+}
+
 pub fn read_config() -> Result<Config> {
     let _ = dotenv();
     let env_config = envy::from_env::<ConfigEnv>().unwrap_or_default();

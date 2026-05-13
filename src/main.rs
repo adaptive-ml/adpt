@@ -276,6 +276,22 @@ enum Commands {
         #[command(subcommand)]
         command: TeamCommands,
     },
+    /// Manage the default project
+    Project {
+        #[command(subcommand)]
+        command: ProjectCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ProjectCommands {
+    /// Set the default project used when --project is not specified
+    Set {
+        #[arg(add = ArgValueCompleter::new(project_completer))]
+        project: String,
+    },
+    /// List all projects
+    List,
 }
 
 impl Commands {
@@ -295,6 +311,7 @@ impl Commands {
             Commands::Role { .. } => "role",
             Commands::User { .. } => "user",
             Commands::Team { .. } => "team",
+            Commands::Project { .. } => "project",
         }
     }
 }
@@ -326,6 +343,11 @@ fn main() -> Result<()> {
         match cli.command {
             Commands::Config => interactive_config(),
             Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
+            Commands::Project { command: ProjectCommands::Set { project } } => {
+                let mut file_config = config::read_config_file()?;
+                file_config.default_project = Some(project);
+                config::write_config(file_config)
+            }
             requires_api_key => {
                 let config = config::read_config()?;
                 let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
@@ -410,6 +432,10 @@ fn main() -> Result<()> {
                             remove_team_member(&client, &user, &team).await
                         }
                         TeamCommands::List => list_teams(&client).await,
+                    },
+                    Commands::Project { command } => match command {
+                        ProjectCommands::Set { .. } => unreachable!("handled above"),
+                        ProjectCommands::List => list_projects_cmd(&client).await,
                     },
                 }
             },
@@ -944,6 +970,65 @@ async fn remove_team_member(client: &AdaptiveClient, user: &str, team: &str) -> 
         );
     } else {
         println!("{}", response.id);
+    }
+
+    Ok(())
+}
+
+async fn list_projects_cmd(client: &AdaptiveClient) -> Result<()> {
+    let projects = client.list_projects().await?;
+
+    if io::stdout().is_terminal() {
+        let config = ListConfig {
+            columns: vec![
+                Column {
+                    header: "Key",
+                    width: Some(25),
+                },
+                Column {
+                    header: "Name",
+                    width: Some(30),
+                },
+                Column {
+                    header: "Owner team",
+                    width: Some(25),
+                },
+                Column {
+                    header: "Created",
+                    width: Some(12),
+                },
+            ],
+            empty_message: "No projects found",
+        };
+        let rows: Vec<Vec<Cell>> = projects
+            .iter()
+            .map(|p| {
+                let owner_team = p
+                    .shares
+                    .iter()
+                    .find(|s| s.is_owner)
+                    .and_then(|s| s.team.as_ref())
+                    .map(|t| t.name.clone())
+                    .unwrap_or_default();
+                let created = humantime::format_rfc3339(p.created_at.0)
+                    .to_string()
+                    .get(..10)
+                    .unwrap_or("")
+                    .to_string();
+                vec![
+                    Cell::from(p.key.as_str()),
+                    Cell::from(p.name.as_str()),
+                    Cell::from(owner_team),
+                    Cell::from(created),
+                ]
+            })
+            .collect();
+        let mut el: AnyElement<'static> = render_list(config, rows).into();
+        el.print();
+    } else {
+        for p in &projects {
+            println!("{}", p.key);
+        }
     }
 
     Ok(())

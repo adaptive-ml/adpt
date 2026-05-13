@@ -32,6 +32,9 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt team add-member`↴](#adpt-team-add-member)
 * [`adpt team remove-member`↴](#adpt-team-remove-member)
 * [`adpt team list`↴](#adpt-team-list)
+* [`adpt project`↴](#adpt-project)
+* [`adpt project set`↴](#adpt-project-set)
+* [`adpt project list`↴](#adpt-project-list)
 
 ## `adpt`
 
@@ -55,6 +58,7 @@ A tool interacting with the Adaptive platform
 * `role` — Manage roles
 * `user` — Manage users
 * `team` — Manage teams
+* `project` — Manage the default project
 
 
 
@@ -425,6 +429,39 @@ Remove a user from a team
 List all teams
 
 **Usage:** `adpt team list`
+
+
+
+## `adpt project`
+
+Manage the default project
+
+**Usage:** `adpt project <COMMAND>`
+
+###### **Subcommands:**
+
+* `set` — Set the default project used when --project is not specified
+* `list` — List all projects
+
+
+
+## `adpt project set`
+
+Set the default project used when --project is not specified
+
+**Usage:** `adpt project set <PROJECT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+
+
+
+## `adpt project list`
+
+List all projects
+
+**Usage:** `adpt project list`
 
 
 
