@@ -101,8 +101,7 @@ pub fn render_list(config: ListConfig, rows: Vec<Vec<Cell>>) -> impl Into<AnyEle
         ]
     } else {
         rows.into_iter()
-            .enumerate()
-            .map(|(i, row)| {
+            .map(|row| {
                 let cells: Vec<AnyElement<'static>> = row
                     .into_iter()
                     .enumerate()
@@ -143,7 +142,6 @@ pub fn render_list(config: ListConfig, rows: Vec<Vec<Cell>>) -> impl Into<AnyEle
 
                 element! {
                     View(
-                        background_color: if i % 2 == 0 { None } else { Some(Color::Grey) },
                         gap: 2u32,
                     ) {
                         #(cells)
