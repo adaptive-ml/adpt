@@ -983,16 +983,20 @@ async fn list_projects_cmd(client: &AdaptiveClient) -> Result<()> {
         let config = ListConfig {
             columns: vec![
                 Column {
-                    header: "Id",
-                    width: Some(36),
-                },
-                Column {
                     header: "Key",
                     width: Some(25),
                 },
                 Column {
                     header: "Name",
-                    width: None,
+                    width: Some(30),
+                },
+                Column {
+                    header: "Owner team",
+                    width: Some(25),
+                },
+                Column {
+                    header: "Created",
+                    width: Some(12),
                 },
             ],
             empty_message: "No projects found",
@@ -1000,10 +1004,23 @@ async fn list_projects_cmd(client: &AdaptiveClient) -> Result<()> {
         let rows: Vec<Vec<Cell>> = projects
             .iter()
             .map(|p| {
+                let owner_team = p
+                    .shares
+                    .iter()
+                    .find(|s| s.is_owner)
+                    .and_then(|s| s.team.as_ref())
+                    .map(|t| t.name.clone())
+                    .unwrap_or_default();
+                let created = humantime::format_rfc3339(p.created_at.0)
+                    .to_string()
+                    .get(..10)
+                    .unwrap_or("")
+                    .to_string();
                 vec![
-                    Cell::from(p.id.to_string()),
                     Cell::from(p.key.as_str()),
                     Cell::from(p.name.as_str()),
+                    Cell::from(owner_team),
+                    Cell::from(created),
                 ]
             })
             .collect();
