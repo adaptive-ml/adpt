@@ -678,23 +678,55 @@ pub fn Spinner(props: &SpinnerProps, mut hooks: Hooks) -> impl Into<AnyElement<'
 }
 
 #[derive(Default, Props)]
-pub struct ConfigHeaderProps {}
+pub struct ConfigHeaderProps {
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+}
 
 #[component]
-pub fn ConfigHeader(_props: &ConfigHeaderProps) -> impl Into<AnyElement<'static>> {
+pub fn ConfigHeader(props: &ConfigHeaderProps) -> impl Into<AnyElement<'static>> {
+    let title = props
+        .title
+        .clone()
+        .unwrap_or_else(|| "⚙️  Configure adpt".to_string());
+    let subtitle = props
+        .subtitle
+        .clone()
+        .unwrap_or_else(|| "Set up your Adaptive CLI configuration".to_string());
     element! {
         View(flex_direction: FlexDirection::Column, margin_bottom: 2) {
             Text(
-                content: "⚙️  Configure adpt",
+                content: title,
                 weight: Weight::Bold,
                 color: Color::Blue
             )
             Text(
-                content: "Set up your Adaptive CLI configuration",
+                content: subtitle,
                 color: Color::DarkGrey
             )
         }
     }
+}
+
+/// Stable color for a deployment name. Uses FNV-1a so the same name always
+/// renders in the same color across invocations and machines.
+pub fn deployment_color(name: &str) -> Color {
+    const PALETTE: [Color; 8] = [
+        Color::Cyan,
+        Color::Blue,
+        Color::Magenta,
+        Color::Yellow,
+        Color::DarkCyan,
+        Color::DarkBlue,
+        Color::DarkMagenta,
+        Color::DarkYellow,
+    ];
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in name.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    PALETTE[(hash as usize) % PALETTE.len()]
 }
 
 #[derive(Default, Props)]
