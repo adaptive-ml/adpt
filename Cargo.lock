@@ -48,6 +48,7 @@ dependencies = [
  "futures",
  "graphql_client",
  "humantime",
+ "ignore",
  "iocraft",
  "keyring",
  "reqwest",
