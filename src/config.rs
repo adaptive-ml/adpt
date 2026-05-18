@@ -2,10 +2,16 @@ use anyhow::{Context, Result, anyhow, bail};
 use dotenvy::dotenv;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
+use slug::slugify;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use url::Url;
+
+/// Normalize a user-provided deployment name into a stable slug.
+pub fn normalize_name(name: &str) -> String {
+    slugify(name)
+}
 
 pub const KEYRING_SERVICE: &str = "adpt-api-key";
 const LEGACY_KEYRING_USER: &str = "Adaptive";
@@ -128,10 +134,11 @@ fn migrate_legacy_keyring() -> Result<()> {
 /// Falls back to the sole deployment if exactly one exists.
 fn resolve_active_name(file: &ConfigFile, override_name: Option<&str>) -> Result<String> {
     if let Some(name) = override_name {
-        if !file.deployments.contains_key(name) {
+        let name = normalize_name(name);
+        if !file.deployments.contains_key(&name) {
             bail!("Deployment `{name}` is not configured. Run `adpt deployment setup {name}`.");
         }
-        return Ok(name.to_string());
+        return Ok(name);
     }
     if let Some(name) = &file.active_deployment
         && file.deployments.contains_key(name)
@@ -218,39 +225,42 @@ pub fn delete_api_key(deployment: &str) -> Result<()> {
 }
 
 pub fn upsert_deployment(name: &str, deployment: DeploymentConfig) -> Result<()> {
+    let name = normalize_name(name);
     let mut file = read_config_file()?;
-    let was_empty = file.deployments.is_empty();
-    file.deployments.insert(name.to_string(), deployment);
-    if was_empty || file.active_deployment.is_none() {
-        file.active_deployment = Some(name.to_string());
+    let is_new = !file.deployments.contains_key(&name);
+    file.deployments.insert(name.clone(), deployment);
+    if is_new {
+        file.active_deployment = Some(name);
     }
     write_config_file(&file)
 }
 
 pub fn set_active(name: &str) -> Result<()> {
+    let name = normalize_name(name);
     let mut file = read_config_file()?;
-    if !file.deployments.contains_key(name) {
+    if !file.deployments.contains_key(&name) {
         bail!("Deployment `{name}` is not configured.");
     }
-    file.active_deployment = Some(name.to_string());
+    file.active_deployment = Some(name);
     write_config_file(&file)
 }
 
 pub fn remove_deployment(name: &str, force: bool) -> Result<()> {
+    let name = normalize_name(name);
     let mut file = read_config_file()?;
-    if !file.deployments.contains_key(name) {
+    if !file.deployments.contains_key(&name) {
         bail!("Deployment `{name}` is not configured.");
     }
-    if file.active_deployment.as_deref() == Some(name) && !force {
+    if file.active_deployment.as_deref() == Some(name.as_str()) && !force {
         bail!(
             "`{name}` is the active deployment. Use --force or switch first with `adpt deployment use <other>`."
         );
     }
-    file.deployments.remove(name);
-    if file.active_deployment.as_deref() == Some(name) {
+    file.deployments.remove(&name);
+    if file.active_deployment.as_deref() == Some(name.as_str()) {
         file.active_deployment = file.deployments.keys().next().cloned();
     }
     write_config_file(&file)?;
-    delete_api_key(name)?;
+    delete_api_key(&name)?;
     Ok(())
 }

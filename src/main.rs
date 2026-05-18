@@ -1341,7 +1341,7 @@ fn read_input(prompt: &str, default: Option<&str>, description: Option<&str>) ->
 /// Prompt for a deployment name when none was provided. Returns the resolved name.
 fn resolve_setup_target(provided: Option<String>) -> Result<(String, Option<DeploymentConfig>)> {
     let file = config::read_config_file()?;
-    let name = if let Some(name) = provided {
+    let raw = if let Some(name) = provided {
         name
     } else if let Some(active) = file.active_deployment.clone() {
         active
@@ -1356,6 +1356,19 @@ fn resolve_setup_target(provided: Option<String>) -> Result<(String, Option<Depl
         }
         entered
     };
+    let name = config::normalize_name(&raw);
+    if name.is_empty() {
+        bail!("Deployment name must contain at least one alphanumeric character");
+    }
+    if name != raw {
+        element! {
+            Text(
+                content: format!("  Using `{name}` as the deployment name."),
+                color: Color::DarkGrey,
+            )
+        }
+        .print();
+    }
     let existing = file.deployments.get(&name).cloned();
     Ok((name, existing))
 }
@@ -1537,8 +1550,8 @@ fn deployment_list() -> Result<()> {
 fn deployment_show(name: Option<&str>, deployment_override: Option<&str>) -> Result<()> {
     let file = config::read_config_file()?;
     let target = name
-        .map(str::to_string)
-        .or_else(|| deployment_override.map(str::to_string))
+        .map(config::normalize_name)
+        .or_else(|| deployment_override.map(config::normalize_name))
         .or_else(|| file.active_deployment.clone())
         .ok_or_else(|| anyhow!("No deployment specified and none active."))?;
     let cfg = file
@@ -1578,7 +1591,7 @@ fn deployment_show(name: Option<&str>, deployment_override: Option<&str>) -> Res
 fn deployment_current(deployment_override: Option<&str>) -> Result<()> {
     let file = config::read_config_file()?;
     let name = if let Some(o) = deployment_override {
-        o.to_string()
+        config::normalize_name(o)
     } else if let Some(a) = file.active_deployment.clone() {
         a
     } else if file.deployments.len() == 1 {
