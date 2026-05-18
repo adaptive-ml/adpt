@@ -13,7 +13,6 @@ use slug::slugify;
 use std::{
     fs,
     io::{self, IsTerminal, Write},
-    os::unix::process::CommandExt,
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -1517,17 +1516,34 @@ fn spawn_pinned_shell(name: &str) -> Result<()> {
         return Ok(());
     }
 
+    #[cfg(unix)]
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    #[cfg(windows)]
+    let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+
     element!(SuccessMessage(
         message: format!("Pinned shell to `{name}` (exit to leave).")
     ))
     .print();
 
-    let err = std::process::Command::new(&shell)
-        .env("ADPT_DEPLOYMENT", name)
-        .exec();
-    // exec only returns on failure.
-    Err(anyhow!("Failed to exec `{shell}`: {err}"))
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let err = std::process::Command::new(&shell)
+            .env("ADPT_DEPLOYMENT", name)
+            .exec();
+        // exec only returns on failure.
+        Err(anyhow!("Failed to exec `{shell}`: {err}"))
+    }
+
+    #[cfg(windows)]
+    {
+        let status = std::process::Command::new(&shell)
+            .env("ADPT_DEPLOYMENT", name)
+            .status()
+            .map_err(|e| anyhow!("Failed to spawn `{shell}`: {e}"))?;
+        std::process::exit(status.code().unwrap_or(0));
+    }
 }
 
 fn shell_escape(s: &str) -> String {
