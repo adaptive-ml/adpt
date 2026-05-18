@@ -109,9 +109,9 @@ Create or edit a deployment interactively
 
 ###### **Options:**
 
-* `--url <URL>` — Skip the dialog by passing the base URL directly
-* `--default-project <DEFAULT_PROJECT>` — Skip the dialog by passing a default project directly
-* `--api-key <API_KEY>` — Skip the dialog by passing the API key directly
+* `--url <URL>` — Base URL (for non-interactive setup, e.g. in CI)
+* `--default-project <DEFAULT_PROJECT>` — Default project (for non-interactive setup)
+* `--api-key <API_KEY>` — API key (for non-interactive setup)
 
 
 

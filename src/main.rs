@@ -196,13 +196,13 @@ enum DeploymentCommands {
     Setup {
         /// Deployment name. If omitted, edits the active deployment.
         name: Option<String>,
-        /// Skip the dialog by passing the base URL directly
+        /// Base URL (for non-interactive setup, e.g. in CI)
         #[arg(long)]
         url: Option<Url>,
-        /// Skip the dialog by passing a default project directly
+        /// Default project (for non-interactive setup)
         #[arg(long)]
         default_project: Option<String>,
-        /// Skip the dialog by passing the API key directly
+        /// API key (for non-interactive setup)
         #[arg(long)]
         api_key: Option<String>,
     },
