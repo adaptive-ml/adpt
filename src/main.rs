@@ -13,6 +13,7 @@ use slug::slugify;
 use std::{
     fs,
     io::{self, IsTerminal, Write},
+    os::unix::process::CommandExt,
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -213,10 +214,13 @@ enum DeploymentCommands {
         /// Deployment name. Defaults to the active deployment.
         name: Option<String>,
     },
-    /// Set the active deployment
+    /// Pin a shell to a deployment (spawns a subshell with $ADPT_DEPLOYMENT)
     Use {
         /// Deployment name to activate
         name: String,
+        /// Also persist as the file-level active deployment for fresh shells
+        #[arg(short, long)]
+        persist: bool,
     },
     /// Print just the active deployment name (for shell prompts)
     Current,
@@ -357,6 +361,8 @@ fn build_adaptive_client(base_url: Url, api_key: String) -> AdaptiveClient {
 }
 
 fn main() -> Result<()> {
+    let _ = dotenvy::dotenv();
+
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -1481,7 +1487,57 @@ fn deployment_setup(
         message: format!("Deployment `{name}` {action}.")
     ))
     .print();
-    Ok(())
+
+    // Drop the user into a pinned shell so they can immediately use the deployment they just set up.
+    spawn_pinned_shell(&name)
+}
+
+fn deployment_use(name: String, persist: bool) -> Result<()> {
+    let name = config::normalize_name(&name);
+    let file = config::read_config_file()?;
+    if !file.deployments.contains_key(&name) {
+        bail!("Deployment `{name}` is not configured. Run `adpt deployment setup {name}`.");
+    }
+    if persist {
+        config::set_active(&name)?;
+    }
+    spawn_pinned_shell(&name)
+}
+
+/// Spawn a new interactive shell with `$ADPT_DEPLOYMENT=<name>` exported, so
+/// every command in that shell resolves to this deployment. If the current
+/// process is already such a pinned shell (i.e. `$ADPT_DEPLOYMENT` is set),
+/// we re-exec the parent shell instead of nesting.
+///
+/// In non-TTY contexts we emit `export ADPT_DEPLOYMENT=<name>` on stdout so
+/// the caller can `eval $(adpt deployment use <name>)` in a script.
+fn spawn_pinned_shell(name: &str) -> Result<()> {
+    if !io::stdout().is_terminal() || std::env::var("ADPT_NO_SUBSHELL").is_ok() {
+        println!("export ADPT_DEPLOYMENT={}", shell_escape(name));
+        return Ok(());
+    }
+
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    element!(SuccessMessage(
+        message: format!("Pinned shell to `{name}` (exit to leave).")
+    ))
+    .print();
+
+    let err = std::process::Command::new(&shell)
+        .env("ADPT_DEPLOYMENT", name)
+        .exec();
+    // exec only returns on failure.
+    Err(anyhow!("Failed to exec `{shell}`: {err}"))
+}
+
+fn shell_escape(s: &str) -> String {
+    if s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
 }
 
 fn handle_deployment_command(
@@ -1497,14 +1553,7 @@ fn handle_deployment_command(
         } => deployment_setup(name, url, default_project, api_key),
         DeploymentCommands::List => deployment_list(),
         DeploymentCommands::Show { name } => deployment_show(name.as_deref(), deployment_override),
-        DeploymentCommands::Use { name } => {
-            config::set_active(&name)?;
-            element!(SuccessMessage(
-                message: format!("Active deployment set to `{name}`.")
-            ))
-            .print();
-            Ok(())
-        }
+        DeploymentCommands::Use { name, persist } => deployment_use(name, persist),
         DeploymentCommands::Current => deployment_current(deployment_override),
         DeploymentCommands::Remove { name, force } => {
             config::remove_deployment(&name, force)?;
@@ -1590,8 +1639,13 @@ fn deployment_show(name: Option<&str>, deployment_override: Option<&str>) -> Res
 
 fn deployment_current(deployment_override: Option<&str>) -> Result<()> {
     let file = config::read_config_file()?;
+    let env_pinned = std::env::var("ADPT_DEPLOYMENT")
+        .ok()
+        .filter(|s| !s.is_empty());
     let name = if let Some(o) = deployment_override {
         config::normalize_name(o)
+    } else if let Some(env_name) = env_pinned {
+        config::normalize_name(&env_name)
     } else if let Some(a) = file.active_deployment.clone() {
         a
     } else if file.deployments.len() == 1 {
@@ -1620,7 +1674,16 @@ fn print_whoami(deployment_override: Option<&str>) -> Result<()> {
     let key_env = std::env::var("ADAPTIVE_API_KEY").ok();
     let project_env = std::env::var("DEFAULT_PROJECT").ok();
 
-    let deployment_note = deployment_override.map(|_| "via --deployment".to_string());
+    let deployment_env = std::env::var("ADPT_DEPLOYMENT")
+        .ok()
+        .filter(|s| !s.is_empty());
+    let deployment_note = if deployment_override.is_some() {
+        Some("via --deployment".to_string())
+    } else {
+        deployment_env
+            .as_ref()
+            .map(|_| "via $ADPT_DEPLOYMENT".to_string())
+    };
     let url_note = url_env
         .as_ref()
         .map(|_| "via ADAPTIVE_BASE_URL".to_string());

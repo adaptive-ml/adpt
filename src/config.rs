@@ -130,13 +130,30 @@ fn migrate_legacy_keyring() -> Result<()> {
     Ok(())
 }
 
-/// Resolve the active deployment, honoring an optional override.
-/// Falls back to the sole deployment if exactly one exists.
+/// Resolve the active deployment.
+///
+/// Order of precedence:
+///   1. explicit `--deployment` override
+///   2. `$ADPT_DEPLOYMENT` env var (pins a shell, kubie-style)
+///   3. `active_deployment` field in the config file
+///   4. sole configured deployment if exactly one exists
 fn resolve_active_name(file: &ConfigFile, override_name: Option<&str>) -> Result<String> {
     if let Some(name) = override_name {
         let name = normalize_name(name);
         if !file.deployments.contains_key(&name) {
             bail!("Deployment `{name}` is not configured. Run `adpt deployment setup {name}`.");
+        }
+        return Ok(name);
+    }
+    if let Ok(env_name) = std::env::var("ADPT_DEPLOYMENT")
+        && !env_name.is_empty()
+    {
+        let name = normalize_name(&env_name);
+        if !file.deployments.contains_key(&name) {
+            bail!(
+                "Deployment `{name}` (from $ADPT_DEPLOYMENT) is not configured. \
+                 Run `adpt deployment setup {name}` or unset the env var."
+            );
         }
         return Ok(name);
     }

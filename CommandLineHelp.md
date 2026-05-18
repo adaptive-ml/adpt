@@ -91,7 +91,7 @@ Manage Adaptive deployments
 * `setup` — Create or edit a deployment interactively
 * `list` — List all configured deployments
 * `show` — Show details for a deployment
-* `use` — Set the active deployment
+* `use` — Pin a shell to a deployment (spawns a subshell with $ADPT_DEPLOYMENT)
 * `current` — Print just the active deployment name (for shell prompts)
 * `remove` — Remove a deployment and its stored API key
 
@@ -137,13 +137,17 @@ Show details for a deployment
 
 ## `adpt deployment use`
 
-Set the active deployment
+Pin a shell to a deployment (spawns a subshell with $ADPT_DEPLOYMENT)
 
-**Usage:** `adpt deployment use <NAME>`
+**Usage:** `adpt deployment use [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
 * `<NAME>` — Deployment name to activate
+
+###### **Options:**
+
+* `-p`, `--persist` — Also persist as the file-level active deployment for fresh shells
 
 
 

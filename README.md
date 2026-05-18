@@ -109,57 +109,47 @@ them.
 ```sh
 adpt deployment setup prod         # interactive create/edit
 adpt deployment setup staging
-adpt deployment list               # see them all; the active one is marked
-adpt deployment use staging        # switch
-adpt deployment current            # print just the active name
+adpt deployment list               # see them all
+adpt deployment show prod          # see the details of one
+adpt deployment use staging        # pin this shell to staging
+adpt deployment use prod --persist # pin this shell AND make prod the default for new shells
+adpt deployment current            # print the deployment this shell sees
 adpt whoami                        # active deployment + resolved settings
-adpt --deployment prod recipes     # one-off override without switching
+adpt --deployment prod recipes     # one-off override for a single command
 adpt deployment remove staging     # delete it (and its API key)
 ```
 
-Legacy flat configs (pre-FE-26) are migrated automatically into a
-`default` deployment on first run.
+### How switching works
+
+`adpt deployment use` spawns a new shell with `$ADPT_DEPLOYMENT` exported.
+
+If you want a switch that does propagate to fresh shells, add `--persist`
+(or use `setup`, which always persists). Persisting writes the
+file-level `active_deployment` in `~/.adpt/config.toml`.
+
+Resolution order for every command:
+
+1. `--deployment <name>` flag
+2. `$ADPT_DEPLOYMENT` env var (your current shell)
+3. `active_deployment` in the config file (the file-level default)
 
 ### Shell prompt integration
 
-`adpt deployment current` is fast and pipe-friendly — wrap it in your
-prompt to always see which deployment you're talking to. Bash/zsh:
-
-```sh
-# in ~/.bashrc or ~/.zshrc
-adpt_prompt() {
-  local d
-  d=$(adpt deployment current 2>/dev/null) && [ -n "$d" ] && printf ' (adpt:%s)' "$d"
-}
-PS1='\u@\h \w$(adpt_prompt)\$ '   # bash
-# zsh:  PROMPT='%n@%m %~$(adpt_prompt)%# '
-```
-
-Fish:
-
-```fish
-function fish_right_prompt
-  set -l d (adpt deployment current 2>/dev/null)
-  test -n "$d"; and echo "adpt:$d"
-end
-```
-
-Starship/oh-my-posh users can point a `custom` segment at
-`adpt deployment current`.
+You can configure your shell prompt to show the active deployment by
+printing the output of `adpt deployment current` in it.
 
 ## Configuration
 
-### Env file overrides
+### Env vars and `.env` overrides
 
-Environment variables in a `.env` file in the current directory (or any
-parent) override individual fields of the active deployment:
+Environment variables, from the shell or a `.env` file in the current
+directory (or any parent), override the deployment selection and its
+fields on a per-invocation basis:
 
-- `ADAPTIVE_BASE_URL` — overrides the base URL
-- `ADAPTIVE_API_KEY` — overrides the keyring-stored key
-- `DEFAULT_PROJECT` — overrides the default project
-
-This makes it easy to pin a repo to a particular Adaptive instance without
-switching your global active deployment.
+- `ADPT_DEPLOYMENT`: pins the deployment to use (same as `--deployment`)
+- `ADAPTIVE_BASE_URL`: overrides the base URL
+- `ADAPTIVE_API_KEY`: overrides the keyring-stored key
+- `DEFAULT_PROJECT`: overrides the default project
 
 ### Configuration file locations
 
