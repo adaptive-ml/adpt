@@ -1602,7 +1602,30 @@ fn deployment_current(deployment_override: Option<&str>) -> Result<()> {
 
 fn print_whoami(deployment_override: Option<&str>) -> Result<()> {
     let config = config::read_config(deployment_override)?;
+    // read_config invoked dotenv, so env::var sees the merged environment.
+    let url_env = std::env::var("ADAPTIVE_BASE_URL").ok();
+    let key_env = std::env::var("ADAPTIVE_API_KEY").ok();
+    let project_env = std::env::var("DEFAULT_PROJECT").ok();
+
+    let deployment_note = deployment_override.map(|_| "via --deployment".to_string());
+    let url_note = url_env
+        .as_ref()
+        .map(|_| "via ADAPTIVE_BASE_URL".to_string());
+    let key_note = key_env.as_ref().map(|_| "via ADAPTIVE_API_KEY".to_string());
+    let project_note = project_env
+        .as_ref()
+        .map(|_| "via DEFAULT_PROJECT".to_string());
+
     let is_tty = io::stdout().is_terminal();
+    let project_value = config
+        .default_project
+        .clone()
+        .unwrap_or_else(|| "<none>".to_string());
+
+    let fmt_note = |note: Option<&String>| -> String {
+        note.map(|n| format!("  [{}]", n)).unwrap_or_default()
+    };
+
     if is_tty {
         element! {
             View(flex_direction: FlexDirection::Column) {
@@ -1613,23 +1636,43 @@ fn print_whoami(deployment_override: Option<&str>) -> Result<()> {
                         color: deployment_color(&config.deployment_name),
                         weight: Weight::Bold,
                     )
+                    Text(content: fmt_note(deployment_note.as_ref()), color: Color::DarkGrey)
                 }
-                Text(content: format!("URL:               {}", config.adaptive_base_url))
-                Text(content: format!(
-                    "Default project:   {}",
-                    config.default_project.clone().unwrap_or_else(|| "<none>".to_string())
-                ))
-                Text(content: "API key:           set".to_string())
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: format!("URL:               {}", config.adaptive_base_url))
+                    Text(content: fmt_note(url_note.as_ref()), color: Color::DarkGrey)
+                }
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: format!("Default project:   {}", project_value))
+                    Text(content: fmt_note(project_note.as_ref()), color: Color::DarkGrey)
+                }
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: "API key:           set".to_string())
+                    Text(content: fmt_note(key_note.as_ref()), color: Color::DarkGrey)
+                }
             }
         }
         .print();
     } else {
-        println!("deployment\t{}", config.deployment_name);
-        println!("url\t{}", config.adaptive_base_url);
+        let suffix = |n: Option<&String>| n.map(|s| format!("\t{}", s)).unwrap_or_default();
         println!(
-            "default_project\t{}",
-            config.default_project.unwrap_or_default()
+            "deployment\t{}{}",
+            config.deployment_name,
+            suffix(deployment_note.as_ref())
         );
+        println!(
+            "url\t{}{}",
+            config.adaptive_base_url,
+            suffix(url_note.as_ref())
+        );
+        println!(
+            "default_project\t{}{}",
+            config.default_project.unwrap_or_default(),
+            suffix(project_note.as_ref())
+        );
+        if key_note.is_some() {
+            println!("api_key\tset\t{}", key_note.unwrap());
+        }
     }
     Ok(())
 }
