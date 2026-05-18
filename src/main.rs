@@ -1670,8 +1670,8 @@ fn print_whoami(deployment_override: Option<&str>) -> Result<()> {
             config.default_project.unwrap_or_default(),
             suffix(project_note.as_ref())
         );
-        if key_note.is_some() {
-            println!("api_key\tset\t{}", key_note.unwrap());
+        if let Some(note) = key_note {
+            println!("api_key\tset\t{}", note);
         }
     }
     Ok(())
