@@ -1718,6 +1718,14 @@ fn print_whoami(deployment_override: Option<&str>) -> Result<()> {
         note.map(|n| format!("  [{}]", n)).unwrap_or_default()
     };
 
+    let deployment_overridden = deployment_note.is_some();
+    let fields_overridden = url_note.is_some() || key_note.is_some() || project_note.is_some();
+    let name_color = if deployment_overridden || fields_overridden {
+        Color::Yellow
+    } else {
+        deployment_color(&config.deployment_name)
+    };
+
     if is_tty {
         element! {
             View(flex_direction: FlexDirection::Column) {
@@ -1725,22 +1733,22 @@ fn print_whoami(deployment_override: Option<&str>) -> Result<()> {
                     Text(content: "Active deployment: ", weight: Weight::Bold)
                     Text(
                         content: config.deployment_name.clone(),
-                        color: deployment_color(&config.deployment_name),
+                        color: name_color,
                         weight: Weight::Bold,
                     )
-                    Text(content: fmt_note(deployment_note.as_ref()), color: Color::DarkGrey)
+                    Text(content: fmt_note(deployment_note.as_ref()), color: Color::Yellow)
                 }
                 View(flex_direction: FlexDirection::Row) {
                     Text(content: format!("URL:               {}", config.adaptive_base_url))
-                    Text(content: fmt_note(url_note.as_ref()), color: Color::DarkGrey)
+                    Text(content: fmt_note(url_note.as_ref()), color: Color::Yellow)
                 }
                 View(flex_direction: FlexDirection::Row) {
                     Text(content: format!("Default project:   {}", project_value))
-                    Text(content: fmt_note(project_note.as_ref()), color: Color::DarkGrey)
+                    Text(content: fmt_note(project_note.as_ref()), color: Color::Yellow)
                 }
                 View(flex_direction: FlexDirection::Row) {
                     Text(content: "API key:           set".to_string())
-                    Text(content: fmt_note(key_note.as_ref()), color: Color::DarkGrey)
+                    Text(content: fmt_note(key_note.as_ref()), color: Color::Yellow)
                 }
             }
         }
