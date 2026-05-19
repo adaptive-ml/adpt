@@ -31,17 +31,20 @@ install via DNF.
 cargo install adpt
 ```
 
-Once installed an API key must be specified for use. This can be done using the
-`ADAPTIVE_API_KEY` environment variable, or alternatively stored in your
-operating system's keyring using the below command:
+Once installed, configure a deployment (URL + API key + optional default
+project) interactively:
 
 ```sh
-adpt set-api-key
+adpt deployment setup prod
 ```
 
-Additionally your adaptive instance may be specified either via the
-`ADAPTIVE_BASE_URL` environment variable or via a configuration file as
-described in the configuration section below.
+You can configure multiple deployments and switch between them with
+`adpt deployment use <name>`. See the [Deployments](#deployments) section
+below.
+
+Environment variables (`ADAPTIVE_API_KEY`, `ADAPTIVE_BASE_URL`,
+`DEFAULT_PROJECT`) still work and override the active deployment's values
+on a per-invocation basis.
 
 ### Completions
 
@@ -66,14 +69,6 @@ adpt recipes --project my-project
 
 However to avoid specifying this every time, the `DEFAULT_PROJECT` environment
 variable or the `default_project` configuration file option.:
-
-### Setting API Key
-
-Store your API key in the system keyring:
-
-```sh
-adpt set-api-key <your-api-key>
-```
 
 ### Full command reference
 
@@ -105,15 +100,58 @@ parameter to another:
 adpt publish my_recipe.py | xargs -I {} adpt run {}
 ```
 
+## Deployments
+
+A deployment bundles a base URL, an API key (stored in the OS keyring), and
+an optional default project. You can configure several and switch between
+them.
+
+```sh
+adpt deployment setup prod         # interactive create/edit
+adpt deployment setup staging
+adpt deployment list               # see them all
+adpt deployment show prod          # see the details of one
+adpt deployment use staging        # pin this shell to staging
+adpt deployment use prod --persist # pin this shell AND make prod the default for new shells
+adpt deployment current            # print the deployment this shell sees
+adpt whoami                        # active deployment + resolved settings
+adpt --deployment prod recipes     # one-off override for a single command
+adpt deployment remove staging     # delete it (and its API key)
+```
+
+### How switching works
+
+`adpt deployment use` spawns a new shell with `$ADPT_DEPLOYMENT` exported.
+
+If you want a switch that does propagate to fresh shells, add `--persist`
+(or use `setup`, which always persists). Persisting writes the
+file-level `active_deployment` in `~/.adpt/config.toml`.
+
+Resolution order for every command:
+
+1. `--deployment <name>` flag
+2. `$ADPT_DEPLOYMENT` env var (your current shell)
+3. `active_deployment` in the config file (the file-level default)
+
+### Shell prompt integration
+
+You can configure your shell prompt to show the active deployment by
+printing the output of `adpt deployment current` in it.
+
 ## Configuration
 
-### Env file
+### Env vars and `.env` overrides
 
-Environment variables may be specified using a `.env` file in a parent folder.
+Environment variables, from the shell or a `.env` file in the current
+directory (or any parent), override the deployment selection and its
+fields on a per-invocation basis:
 
-### Configuration File Locations
+- `ADPT_DEPLOYMENT`: pins the deployment to use (same as `--deployment`)
+- `ADAPTIVE_BASE_URL`: overrides the base URL
+- `ADAPTIVE_API_KEY`: overrides the keyring-stored key
+- `DEFAULT_PROJECT`: overrides the default project
 
-Configuration files are stored in platform-specific locations:
+### Configuration file locations
 
 | Platform    | Configuration File Path                                             |
 | ----------- | ------------------------------------------------------------------- |
@@ -121,21 +159,17 @@ Configuration files are stored in platform-specific locations:
 | **macOS**   | `~/.adpt/config.toml`                                               |
 | **Windows** | `%APPDATA%\adaptive-ml\adpt\config\config.toml`                     |
 
-### Configuration File Format
-
-The configuration file uses TOML format and supports the following options:
+### Configuration file format
 
 ```toml
-# Default project for operations
+active_deployment = "prod"
+
+[deployments.prod]
+adaptive_base_url = "https://prod.adaptive.example"
 default_project = "my-project"
 
-# Base URL for the Adaptive platform
-adaptive_base_url = "https://your-adaptive-instance.com"
+[deployments.staging]
+adaptive_base_url = "https://staging.adaptive.example"
 ```
 
-### API Key Storage
-
-The API key can be provided in two ways (in order of priority):
-
-1. **Environment Variable**: Set `ADAPTIVE_API_KEY` environment variable
-2. **System Keyring**: Store securely using `adpt set-api-key <your-key>`
+API keys are stored per-deployment in the OS keyring, never in this file.

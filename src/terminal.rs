@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::sync::LazyLock;
 use termwiz::escape::osc::OperatingSystemCommand;
 pub use termwiz::escape::osc::Progress;
@@ -16,7 +17,7 @@ static SUPPORTS_ADVANCED_FEATURES: LazyLock<bool> = LazyLock::new(|| {
 });
 
 fn supports_advanced_features() -> bool {
-    *SUPPORTS_ADVANCED_FEATURES
+    *SUPPORTS_ADVANCED_FEATURES && std::io::stdout().is_terminal()
 }
 
 pub struct TitleGuard {

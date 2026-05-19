@@ -6,7 +6,14 @@ This document contains the help content for the `adpt` command-line program.
 
 * [`adpt`↴](#adpt)
 * [`adpt cancel`↴](#adpt-cancel)
-* [`adpt config`↴](#adpt-config)
+* [`adpt deployment`↴](#adpt-deployment)
+* [`adpt deployment setup`↴](#adpt-deployment-setup)
+* [`adpt deployment list`↴](#adpt-deployment-list)
+* [`adpt deployment show`↴](#adpt-deployment-show)
+* [`adpt deployment use`↴](#adpt-deployment-use)
+* [`adpt deployment current`↴](#adpt-deployment-current)
+* [`adpt deployment remove`↴](#adpt-deployment-remove)
+* [`adpt whoami`↴](#adpt-whoami)
 * [`adpt job`↴](#adpt-job)
 * [`adpt jobs`↴](#adpt-jobs)
 * [`adpt models`↴](#adpt-models)
@@ -15,7 +22,6 @@ This document contains the help content for the `adpt` command-line program.
 * [`adpt recipes`↴](#adpt-recipes)
 * [`adpt run`↴](#adpt-run)
 * [`adpt schema`↴](#adpt-schema)
-* [`adpt set-api-key`↴](#adpt-set-api-key)
 * [`adpt role`↴](#adpt-role)
 * [`adpt role create`↴](#adpt-role-create)
 * [`adpt role describe`↴](#adpt-role-describe)
@@ -37,12 +43,13 @@ This document contains the help content for the `adpt` command-line program.
 
 A tool interacting with the Adaptive platform
 
-**Usage:** `adpt <COMMAND>`
+**Usage:** `adpt [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
 * `cancel` — Cancel a job
-* `config` — Configure adpt interactively
+* `deployment` — Manage Adaptive deployments
+* `whoami` — Show the active deployment and its resolved settings
 * `job` — Inspect job
 * `jobs` — List currently running jobs
 * `models` — List models
@@ -51,10 +58,13 @@ A tool interacting with the Adaptive platform
 * `recipes` — List recipes
 * `run` — Run recipe
 * `schema` — Display the schema for inputs for a recipe
-* `set-api-key` — Store your API key in the OS keyring
 * `role` — Manage roles
 * `user` — Manage users
 * `team` — Manage teams
+
+###### **Options:**
+
+* `--deployment <DEPLOYMENT>` — Use a specific deployment for this invocation, overriding the active one
 
 
 
@@ -70,11 +80,106 @@ Cancel a job
 
 
 
-## `adpt config`
+## `adpt deployment`
 
-Configure adpt interactively
+Manage Adaptive deployments
 
-**Usage:** `adpt config`
+**Usage:** `adpt deployment <COMMAND>`
+
+###### **Subcommands:**
+
+* `setup` — Create or edit a deployment interactively
+* `list` — List all configured deployments
+* `show` — Show details for a deployment
+* `use` — Pin a shell to a deployment (spawns a subshell with $ADPT_DEPLOYMENT)
+* `current` — Print just the active deployment name (for shell prompts)
+* `remove` — Remove a deployment and its stored API key
+
+
+
+## `adpt deployment setup`
+
+Create or edit a deployment interactively
+
+**Usage:** `adpt deployment setup [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Deployment name. If omitted, edits the active deployment
+
+###### **Options:**
+
+* `--url <URL>` — Base URL (for non-interactive setup, e.g. in CI)
+* `--default-project <DEFAULT_PROJECT>` — Default project (for non-interactive setup)
+* `--api-key <API_KEY>` — API key (for non-interactive setup)
+
+
+
+## `adpt deployment list`
+
+List all configured deployments
+
+**Usage:** `adpt deployment list`
+
+
+
+## `adpt deployment show`
+
+Show details for a deployment
+
+**Usage:** `adpt deployment show [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Deployment name. Defaults to the active deployment
+
+
+
+## `adpt deployment use`
+
+Pin a shell to a deployment (spawns a subshell with $ADPT_DEPLOYMENT)
+
+**Usage:** `adpt deployment use [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Deployment name to activate
+
+###### **Options:**
+
+* `-p`, `--persist` — Also persist as the file-level active deployment for fresh shells
+
+
+
+## `adpt deployment current`
+
+Print just the active deployment name (for shell prompts)
+
+**Usage:** `adpt deployment current`
+
+
+
+## `adpt deployment remove`
+
+Remove a deployment and its stored API key
+
+**Usage:** `adpt deployment remove [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Deployment name to remove
+
+###### **Options:**
+
+* `-f`, `--force` — Allow removing the active deployment
+
+
+
+## `adpt whoami`
+
+Show the active deployment and its resolved settings
+
+**Usage:** `adpt whoami`
 
 
 
@@ -199,18 +304,6 @@ Display the schema for inputs for a recipe
 ###### **Options:**
 
 * `-p`, `--project <PROJECT>`
-
-
-
-## `adpt set-api-key`
-
-Store your API key in the OS keyring
-
-**Usage:** `adpt set-api-key <API_KEY>`
-
-###### **Arguments:**
-
-* `<API_KEY>`
 
 
 

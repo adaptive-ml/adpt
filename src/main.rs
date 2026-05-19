@@ -27,11 +27,12 @@ use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 use zip_extensions::zip_writer_extensions::ZipWriterExtensions;
 
 use crate::{
+    config::DeploymentConfig,
     json_schema::{JsonSchema, JsonSchemaPropertyContents},
     terminal::TitleGuard,
     ui::{
         AllModelsList, Cell, Column, ConfigHeader, ErrorMessage, InputPrompt, JobsList, ListConfig,
-        ModelsList, ProgressBar, RecipeList, SuccessMessage, render_list,
+        ModelsList, ProgressBar, RecipeList, SuccessMessage, deployment_color, render_list,
     },
 };
 
@@ -50,6 +51,9 @@ const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    /// Use a specific deployment for this invocation, overriding the active one
+    #[arg(long, global = true)]
+    deployment: Option<String>,
     #[arg(long, hide = true)]
     markdown_help: bool,
 }
@@ -186,11 +190,59 @@ enum TeamCommands {
 }
 
 #[derive(Subcommand)]
+enum DeploymentCommands {
+    /// Create or edit a deployment interactively
+    Setup {
+        /// Deployment name. If omitted, edits the active deployment.
+        name: Option<String>,
+        /// Base URL (for non-interactive setup, e.g. in CI)
+        #[arg(long)]
+        url: Option<Url>,
+        /// Default project (for non-interactive setup)
+        #[arg(long)]
+        default_project: Option<String>,
+        /// API key (for non-interactive setup)
+        #[arg(long)]
+        api_key: Option<String>,
+    },
+    /// List all configured deployments
+    List,
+    /// Show details for a deployment
+    Show {
+        /// Deployment name. Defaults to the active deployment.
+        name: Option<String>,
+    },
+    /// Pin a shell to a deployment (spawns a subshell with $ADPT_DEPLOYMENT)
+    Use {
+        /// Deployment name to activate
+        name: String,
+        /// Also persist as the file-level active deployment for fresh shells
+        #[arg(short, long)]
+        persist: bool,
+    },
+    /// Print just the active deployment name (for shell prompts)
+    Current,
+    /// Remove a deployment and its stored API key
+    Remove {
+        /// Deployment name to remove
+        name: String,
+        /// Allow removing the active deployment
+        #[arg(short, long)]
+        force: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum Commands {
     /// Cancel a job
     Cancel { id: Uuid },
-    /// Configure adpt interactively
-    Config,
+    /// Manage Adaptive deployments
+    Deployment {
+        #[command(subcommand)]
+        command: DeploymentCommands,
+    },
+    /// Show the active deployment and its resolved settings
+    Whoami,
     /// Inspect job
     Job {
         id: Uuid,
@@ -259,8 +311,6 @@ enum Commands {
         #[arg(add = ArgValueCompleter::new(recipe_key_completer))]
         recipe: String,
     },
-    /// Store your API key in the OS keyring
-    SetApiKey { api_key: String },
     /// Manage roles
     Role {
         #[command(subcommand)]
@@ -282,7 +332,8 @@ impl Commands {
     fn name(&self) -> &'static str {
         match self {
             Commands::Cancel { .. } => "cancel",
-            Commands::Config => "config",
+            Commands::Deployment { .. } => "deployment",
+            Commands::Whoami => "whoami",
             Commands::Job { .. } => "job",
             Commands::Jobs => "jobs",
             Commands::Models { .. } => "models",
@@ -291,7 +342,6 @@ impl Commands {
             Commands::Recipes { .. } => "recipes",
             Commands::Run { .. } => "run",
             Commands::Schema { .. } => "schema",
-            Commands::SetApiKey { .. } => "set-api-key",
             Commands::Role { .. } => "role",
             Commands::User { .. } => "user",
             Commands::Team { .. } => "team",
@@ -309,6 +359,8 @@ fn build_adaptive_client(base_url: Url, api_key: String) -> AdaptiveClient {
 }
 
 fn main() -> Result<()> {
+    let _ = dotenvy::dotenv();
+
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -322,12 +374,16 @@ fn main() -> Result<()> {
     }
     let _title_guard = TitleGuard::new(&format!("adpt - {}", cli.command.name()));
 
+    let deployment_override = cli.deployment.clone();
     rt.block_on(async {
         match cli.command {
-            Commands::Config => interactive_config(),
-            Commands::SetApiKey { api_key } => config::set_api_key_keyring(api_key),
+            Commands::Deployment { command } => {
+                handle_deployment_command(command, deployment_override.as_deref())
+            }
+            Commands::Whoami => print_whoami(deployment_override.as_deref()),
             requires_api_key => {
-                let config = config::read_config()?;
+                ensure_deployment_configured()?;
+                let config = config::read_config(deployment_override.as_deref())?;
                 let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
                 let default_project = config.default_project.clone();
 
@@ -369,8 +425,8 @@ fn main() -> Result<()> {
                     Commands::Schema { project, recipe } => {
                                         print_schema(&client, load_project(project), recipe).await
                                     }
-                    Commands::Config => panic!("This state should be unreachable"),
-                    Commands::SetApiKey { api_key: _ } => panic!("This state should be unreachable"),
+                    Commands::Deployment { .. } => panic!("This state should be unreachable"),
+                    Commands::Whoami => panic!("This state should be unreachable"),
                     Commands::Upload { project, dataset, name } => upload_dataset(&client, &load_project(project), dataset, name).await,
                     Commands::Role { command } => match command {
                         RoleCommands::Create { name, key, permissions } => {
@@ -703,14 +759,19 @@ fn recipe_key_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
         return completions;
     };
 
-    let config = config::read_config().expect("Failed to read config");
+    let Ok(config) = config::read_config(None) else {
+        return completions;
+    };
+    let Some(default_project) = config.default_project else {
+        return completions;
+    };
 
     let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
 
     let handle = Handle::current();
-    let recipes = handle
-        .block_on(client.list_recipes(&config.default_project.expect("No default project set")))
-        .unwrap();
+    let Ok(recipes) = handle.block_on(client.list_recipes(&default_project)) else {
+        return completions;
+    };
 
     recipes.into_iter().for_each(|recipe| {
         if let Some(key) = recipe.key
@@ -729,12 +790,16 @@ fn project_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
         return completions;
     };
 
-    let config = config::read_config().expect("Failed to read config");
+    let Ok(config) = config::read_config(None) else {
+        return completions;
+    };
 
     let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
 
     let handle = Handle::current();
-    let projects = handle.block_on(client.list_projects()).unwrap();
+    let Ok(projects) = handle.block_on(client.list_projects()) else {
+        return completions;
+    };
 
     projects.into_iter().for_each(|project| {
         if project.key.starts_with(current) {
@@ -751,12 +816,16 @@ fn pool_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
         return completions;
     };
 
-    let config = config::read_config().expect("Failed to read config");
+    let Ok(config) = config::read_config(None) else {
+        return completions;
+    };
 
     let client = build_adaptive_client(config.adaptive_base_url, config.adaptive_api_key);
 
     let handle = Handle::current();
-    let pools = handle.block_on(client.list_pools()).unwrap();
+    let Ok(pools) = handle.block_on(client.list_pools()) else {
+        return completions;
+    };
 
     pools.into_iter().for_each(|pool| {
         if pool.key.starts_with(current) {
@@ -1273,61 +1342,461 @@ fn read_input(prompt: &str, default: Option<&str>, description: Option<&str>) ->
     }
 }
 
-fn interactive_config() -> Result<()> {
-    element!(ConfigHeader()).print();
-
-    let adaptive_base_url = loop {
-        let base_url_str = read_input(
-            "Adaptive Base URL",
-            Some(DEFAULT_ADAPTIVE_BASE_URL),
-            Some("The base URL for your Adaptive instance"),
+/// Prompt for a deployment name when none was provided. Returns the resolved name.
+fn resolve_setup_target(provided: Option<String>) -> Result<(String, Option<DeploymentConfig>)> {
+    let file = config::read_config_file()?;
+    let raw = if let Some(name) = provided {
+        name
+    } else if let Some(active) = file.active_deployment.clone() {
+        active
+    } else {
+        let entered = read_input(
+            "Deployment name",
+            Some("default"),
+            Some("A short label for this Adaptive deployment (e.g. prod, staging)"),
         )?;
+        if entered.is_empty() {
+            bail!("Deployment name cannot be empty");
+        }
+        entered
+    };
+    let name = config::normalize_name(&raw);
+    if name.is_empty() {
+        bail!("Deployment name must contain at least one alphanumeric character");
+    }
+    if name != raw {
+        element! {
+            Text(
+                content: format!("  Using `{name}` as the deployment name."),
+                color: Color::DarkGrey,
+            )
+        }
+        .print();
+    }
+    let existing = file.deployments.get(&name).cloned();
+    Ok((name, existing))
+}
 
-        match Url::parse(&base_url_str) {
-            Ok(url) => break url,
-            Err(e) => {
-                element!(ErrorMessage(message: format!("Invalid URL: {}", e))).print();
-                println!();
+fn deployment_setup(
+    name: Option<String>,
+    url: Option<Url>,
+    default_project: Option<String>,
+    api_key: Option<String>,
+) -> Result<()> {
+    let (name, existing) = resolve_setup_target(name)?;
+    let is_edit = existing.is_some();
+
+    let title = if is_edit {
+        format!("⚙️  Edit deployment: {name}")
+    } else {
+        format!("⚙️  Set up deployment: {name}")
+    };
+    element!(ConfigHeader(title: Some(title), subtitle: None)).print();
+
+    let interactive = url.is_none() && api_key.is_none() && io::stdout().is_terminal();
+
+    // Resolve base URL
+    let adaptive_base_url = if let Some(u) = url {
+        u
+    } else if interactive {
+        let default = existing
+            .as_ref()
+            .map(|d| d.adaptive_base_url.to_string())
+            .unwrap_or_else(|| DEFAULT_ADAPTIVE_BASE_URL.to_string());
+        loop {
+            let entered = read_input(
+                "Adaptive Base URL",
+                Some(&default),
+                Some("The base URL for your Adaptive instance"),
+            )?;
+            match Url::parse(&entered) {
+                Ok(url) => break url,
+                Err(e) => {
+                    element!(ErrorMessage(message: format!("Invalid URL: {}", e))).print();
+                    println!();
+                }
             }
         }
-    };
-
-    let adaptive_api_key = loop {
-        let api_key = read_input(
-            "API Key",
-            None,
-            Some("Your Adaptive API key (stored securely in OS keyring)"),
-        )?;
-
-        if api_key.is_empty() {
-            element!(ErrorMessage(message: "API key cannot be empty".to_string())).print();
-            println!();
-        } else {
-            break api_key;
-        }
-    };
-
-    let default_project_str = read_input(
-        "Default Use Case",
-        None,
-        Some("Optional: Set a default project to avoid specifying --project every time"),
-    )?;
-    let default_project = if default_project_str.is_empty() {
-        None
+    } else if let Some(d) = &existing {
+        d.adaptive_base_url.clone()
     } else {
-        Some(default_project_str)
+        bail!("--url is required when running non-interactively for a new deployment");
     };
 
-    config::set_api_key_keyring(adaptive_api_key)?;
-
-    let config_file = config::ConfigFile {
-        adaptive_base_url: Some(adaptive_base_url),
-        default_project,
+    // Resolve API key
+    let api_key_value: Option<String> = if let Some(k) = api_key {
+        Some(k)
+    } else if interactive {
+        let key_existed = config::get_api_key(&name)?.is_some();
+        let description = if key_existed {
+            "Your Adaptive API key (leave blank to keep the existing one)"
+        } else {
+            "Your Adaptive API key (stored securely in OS keyring)"
+        };
+        let entered = read_input("API Key", None, Some(description))?;
+        if entered.is_empty() {
+            if !key_existed && !is_edit {
+                element!(ErrorMessage(
+                    message: "API key required for a new deployment".to_string()
+                ))
+                .print();
+                bail!("Aborted");
+            }
+            None
+        } else {
+            Some(entered)
+        }
+    } else {
+        None
     };
 
-    config::write_config(config_file)?;
+    // Resolve default project
+    let default_project_value: Option<String> = if let Some(p) = default_project {
+        if p.is_empty() { None } else { Some(p) }
+    } else if interactive {
+        let default = existing.as_ref().and_then(|d| d.default_project.clone());
+        let entered = read_input(
+            "Default project",
+            default.as_deref(),
+            Some("Optional: avoids needing --project on every command"),
+        )?;
+        if entered.is_empty() {
+            None
+        } else {
+            Some(entered)
+        }
+    } else {
+        existing.as_ref().and_then(|d| d.default_project.clone())
+    };
 
-    element!(SuccessMessage(message: "Configuration complete!".to_string())).print();
+    config::upsert_deployment(
+        &name,
+        DeploymentConfig {
+            adaptive_base_url,
+            default_project: default_project_value,
+        },
+    )?;
+    if let Some(key) = api_key_value {
+        config::set_api_key(&name, &key)?;
+    }
 
+    let action = if is_edit { "updated" } else { "saved" };
+    element!(SuccessMessage(
+        message: format!("Deployment `{name}` {action}.")
+    ))
+    .print();
+
+    // Drop the user into a pinned shell so they can immediately use the deployment they just set up.
+    spawn_pinned_shell(&name)
+}
+
+fn deployment_use(name: String, persist: bool) -> Result<()> {
+    let name = config::normalize_name(&name);
+    let file = config::read_config_file()?;
+    if !file.deployments.contains_key(&name) {
+        bail!("Deployment `{name}` is not configured. Run `adpt deployment setup {name}`.");
+    }
+    if persist {
+        config::set_active(&name)?;
+    }
+    spawn_pinned_shell(&name)
+}
+
+/// Spawn a new interactive shell with `$ADPT_DEPLOYMENT=<name>` exported, so
+/// every command in that shell resolves to this deployment. If the current
+/// process is already such a pinned shell (i.e. `$ADPT_DEPLOYMENT` is set),
+/// we re-exec the parent shell instead of nesting.
+///
+/// In non-TTY contexts we emit `export ADPT_DEPLOYMENT=<name>` on stdout so
+/// the caller can `eval $(adpt deployment use <name>)` in a script.
+fn spawn_pinned_shell(name: &str) -> Result<()> {
+    if !io::stdout().is_terminal() || std::env::var("ADPT_NO_SUBSHELL").is_ok() {
+        println!("export ADPT_DEPLOYMENT={}", shell_escape(name));
+        return Ok(());
+    }
+
+    #[cfg(unix)]
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    #[cfg(windows)]
+    let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+
+    element!(SuccessMessage(
+        message: format!("Pinned shell to `{name}` (exit to leave).")
+    ))
+    .print();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let err = std::process::Command::new(&shell)
+            .env("ADPT_DEPLOYMENT", name)
+            .exec();
+        // exec only returns on failure.
+        Err(anyhow!("Failed to exec `{shell}`: {err}"))
+    }
+
+    #[cfg(windows)]
+    {
+        let status = std::process::Command::new(&shell)
+            .env("ADPT_DEPLOYMENT", name)
+            .status()
+            .map_err(|e| anyhow!("Failed to spawn `{shell}`: {e}"))?;
+        std::process::exit(status.code().unwrap_or(0));
+    }
+}
+
+fn shell_escape(s: &str) -> String {
+    if s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
+fn handle_deployment_command(
+    command: DeploymentCommands,
+    deployment_override: Option<&str>,
+) -> Result<()> {
+    match command {
+        DeploymentCommands::Setup {
+            name,
+            url,
+            default_project,
+            api_key,
+        } => deployment_setup(name, url, default_project, api_key),
+        DeploymentCommands::List => deployment_list(),
+        DeploymentCommands::Show { name } => deployment_show(name.as_deref(), deployment_override),
+        DeploymentCommands::Use { name, persist } => deployment_use(name, persist),
+        DeploymentCommands::Current => deployment_current(deployment_override),
+        DeploymentCommands::Remove { name, force } => {
+            config::remove_deployment(&name, force)?;
+            element!(SuccessMessage(
+                message: format!("Deployment `{name}` removed.")
+            ))
+            .print();
+            Ok(())
+        }
+    }
+}
+
+fn deployment_list() -> Result<()> {
+    let file = config::read_config_file()?;
+    if file.deployments.is_empty() {
+        println!("No deployments configured. Run `adpt deployment setup <name>`.");
+        return Ok(());
+    }
+    let active = file.active_deployment.as_deref();
+    let is_tty = io::stdout().is_terminal();
+    for (name, cfg) in &file.deployments {
+        let marker = if active == Some(name.as_str()) {
+            "*"
+        } else {
+            " "
+        };
+        if is_tty {
+            element! {
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: format!("{marker} "))
+                    Text(content: name.clone(), color: deployment_color(name), weight: Weight::Bold)
+                    Text(content: format!("  {}", cfg.adaptive_base_url), color: Color::DarkGrey)
+                }
+            }
+            .print();
+        } else {
+            println!("{marker} {name}\t{}", cfg.adaptive_base_url);
+        }
+    }
     Ok(())
+}
+
+fn deployment_show(name: Option<&str>, deployment_override: Option<&str>) -> Result<()> {
+    let file = config::read_config_file()?;
+    let target = name
+        .map(config::normalize_name)
+        .or_else(|| deployment_override.map(config::normalize_name))
+        .or_else(|| file.active_deployment.clone())
+        .ok_or_else(|| anyhow!("No deployment specified and none active."))?;
+    let cfg = file
+        .deployments
+        .get(&target)
+        .ok_or_else(|| anyhow!("Deployment `{target}` is not configured."))?;
+    let key_present = config::get_api_key(&target)?.is_some();
+    let is_tty = io::stdout().is_terminal();
+    if is_tty {
+        element! {
+            View(flex_direction: FlexDirection::Column) {
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: "Deployment: ", weight: Weight::Bold)
+                    Text(content: target.clone(), color: deployment_color(&target), weight: Weight::Bold)
+                }
+                Text(content: format!("URL:             {}", cfg.adaptive_base_url))
+                Text(content: format!(
+                    "Default project: {}",
+                    cfg.default_project.clone().unwrap_or_else(|| "<none>".to_string())
+                ))
+                Text(content: format!("API key:         {}", if key_present { "set" } else { "not set" }))
+            }
+        }
+        .print();
+    } else {
+        println!("name\t{target}");
+        println!("url\t{}", cfg.adaptive_base_url);
+        println!(
+            "default_project\t{}",
+            cfg.default_project.clone().unwrap_or_default()
+        );
+        println!("api_key\t{}", if key_present { "set" } else { "unset" });
+    }
+    Ok(())
+}
+
+fn deployment_current(deployment_override: Option<&str>) -> Result<()> {
+    let file = config::read_config_file()?;
+    let env_pinned = std::env::var("ADPT_DEPLOYMENT")
+        .ok()
+        .filter(|s| !s.is_empty());
+    let name = if let Some(o) = deployment_override {
+        config::normalize_name(o)
+    } else if let Some(env_name) = env_pinned {
+        config::normalize_name(&env_name)
+    } else if let Some(a) = file.active_deployment.clone() {
+        a
+    } else if file.deployments.len() == 1 {
+        file.deployments.keys().next().unwrap().clone()
+    } else {
+        // Empty output (no trailing newline) is more shell-prompt friendly.
+        return Ok(());
+    };
+    if io::stdout().is_terminal() {
+        element! {
+            Text(content: name.clone(), color: deployment_color(&name), weight: Weight::Bold)
+        }
+        .print();
+    } else {
+        // No ANSI when piped — prompts that wrap this command will add their own styling.
+        print!("{name}");
+        io::stdout().flush()?;
+    }
+    Ok(())
+}
+
+fn print_whoami(deployment_override: Option<&str>) -> Result<()> {
+    let config = config::read_config(deployment_override)?;
+    // read_config invoked dotenv, so env::var sees the merged environment.
+    let url_env = std::env::var("ADAPTIVE_BASE_URL").ok();
+    let key_env = std::env::var("ADAPTIVE_API_KEY").ok();
+    let project_env = std::env::var("DEFAULT_PROJECT").ok();
+
+    let deployment_env = std::env::var("ADPT_DEPLOYMENT")
+        .ok()
+        .filter(|s| !s.is_empty());
+    let deployment_note = if deployment_override.is_some() {
+        Some("via --deployment".to_string())
+    } else {
+        deployment_env
+            .as_ref()
+            .map(|_| "via $ADPT_DEPLOYMENT".to_string())
+    };
+    let url_note = url_env
+        .as_ref()
+        .map(|_| "via ADAPTIVE_BASE_URL".to_string());
+    let key_note = key_env.as_ref().map(|_| "via ADAPTIVE_API_KEY".to_string());
+    let project_note = project_env
+        .as_ref()
+        .map(|_| "via DEFAULT_PROJECT".to_string());
+
+    let is_tty = io::stdout().is_terminal();
+    let project_value = config
+        .default_project
+        .clone()
+        .unwrap_or_else(|| "<none>".to_string());
+
+    let fmt_note = |note: Option<&String>| -> String {
+        note.map(|n| format!("  [{}]", n)).unwrap_or_default()
+    };
+
+    let deployment_overridden = deployment_note.is_some();
+    let fields_overridden = url_note.is_some() || key_note.is_some() || project_note.is_some();
+    let name_color = if deployment_overridden || fields_overridden {
+        Color::Yellow
+    } else {
+        deployment_color(&config.deployment_name)
+    };
+
+    if is_tty {
+        element! {
+            View(flex_direction: FlexDirection::Column) {
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: "Active deployment: ", weight: Weight::Bold)
+                    Text(
+                        content: config.deployment_name.clone(),
+                        color: name_color,
+                        weight: Weight::Bold,
+                    )
+                    Text(content: fmt_note(deployment_note.as_ref()), color: Color::Yellow)
+                }
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: format!("URL:               {}", config.adaptive_base_url))
+                    Text(content: fmt_note(url_note.as_ref()), color: Color::Yellow)
+                }
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: format!("Default project:   {}", project_value))
+                    Text(content: fmt_note(project_note.as_ref()), color: Color::Yellow)
+                }
+                View(flex_direction: FlexDirection::Row) {
+                    Text(content: "API key:           set".to_string())
+                    Text(content: fmt_note(key_note.as_ref()), color: Color::Yellow)
+                }
+            }
+        }
+        .print();
+    } else {
+        let suffix = |n: Option<&String>| n.map(|s| format!("\t{}", s)).unwrap_or_default();
+        println!(
+            "deployment\t{}{}",
+            config.deployment_name,
+            suffix(deployment_note.as_ref())
+        );
+        println!(
+            "url\t{}{}",
+            config.adaptive_base_url,
+            suffix(url_note.as_ref())
+        );
+        println!(
+            "default_project\t{}{}",
+            config.default_project.unwrap_or_default(),
+            suffix(project_note.as_ref())
+        );
+        if let Some(note) = key_note {
+            println!("api_key\tset\t{}", note);
+        }
+    }
+    Ok(())
+}
+
+/// If no deployment is configured, prompt the user to set one up (TTY) or
+/// surface a clear error (non-TTY) before any command that needs config runs.
+fn ensure_deployment_configured() -> Result<()> {
+    let file = config::read_config_file()?;
+    if !file.deployments.is_empty() {
+        return Ok(());
+    }
+    if io::stdout().is_terminal() && io::stdin().is_terminal() {
+        element!(ErrorMessage(
+            message: "No deployment configured.".to_string()
+        ))
+        .print();
+        let answer = read_input("Set one up now?", Some("Y"), Some("[Y/n]"))?;
+        if !answer.is_empty()
+            && !answer.eq_ignore_ascii_case("y")
+            && !answer.eq_ignore_ascii_case("yes")
+        {
+            bail!("Aborted. Run `adpt deployment setup <name>` to configure.");
+        }
+        deployment_setup(None, None, None, None)
+    } else {
+        bail!("No deployment configured. Run `adpt deployment setup <name>`.");
+    }
 }
