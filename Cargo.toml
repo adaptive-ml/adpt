@@ -25,7 +25,7 @@ keyring = { version = "3.6.3", features = [
     "crypto-rust",
     "sync-secret-service",
 ] }
-reqwest = { version = "0.12.23", default-features = false, features = [
+reqwest = { version = "0.13.0", default-features = false, features = [
     "json",
     "multipart",
     "rustls-tls",
