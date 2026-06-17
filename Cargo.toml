@@ -54,4 +54,5 @@ typed-path = "0.12.3"
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/x86_64-unknown-linux-gnu/release/adpt", dest = "/usr/bin/adpt", mode = "755" },
+    { source = "THIRD_PARTY_LICENSES.txt", dest = "/usr/share/doc/adpt/THIRD_PARTY_LICENSES.txt", mode = "644" },
 ]

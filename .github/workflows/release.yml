@@ -49,6 +49,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: cargo install cargo-generate-rpm
 
+      - name: Install cargo-about
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo install cargo-about --locked --features cli
+
       - name: Cache cargo registry
         uses: actions/cache@v5
         with:
@@ -68,6 +72,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run:
           strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+
+      - name: Generate third-party licenses
+        if: matrix.os == 'ubuntu-latest'
+        run: scripts/generate-third-party-licenses.sh
 
       - name: Build RPM
         if: matrix.os == 'ubuntu-latest'
@@ -90,6 +98,14 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: "*.rpm"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload third-party licenses
+        if: matrix.os == 'ubuntu-latest'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: THIRD_PARTY_LICENSES.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
