@@ -7,6 +7,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Work around intermittent "HTTP2 framing layer" errors when cargo refreshes
+  # the crates.io index in CI.
+  CARGO_HTTP_MULTIPLEXING: false
+  CARGO_NET_RETRY: 10
 
 jobs:
   build_release:
