@@ -1,12 +1,5 @@
 use std::{env, fs, path::Path};
 
-// Embeds the third-party license notices into the binary so `adpt --licenses`
-// works regardless of how adpt was installed (brew, winget, cargo install, ...).
-//
-// The notices file is generated per-build by scripts/generate-third-party-licenses.sh
-// and is gitignored. Release CI runs that script before `cargo build`, so the real
-// notices get baked in. For ordinary dev builds (and `cargo install` from crates.io)
-// the file is absent, so we embed a short placeholder that points at the release page.
 fn main() {
     println!("cargo:rerun-if-changed=THIRD_PARTY_LICENSES.txt");
 

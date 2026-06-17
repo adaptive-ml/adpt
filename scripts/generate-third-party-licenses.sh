@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# Generates THIRD_PARTY_LICENSES.txt: the third-party OSS licenses for the Rust
-# crates STATICALLY LINKED into the shipped `adpt` binary. Because the release
-# binary links its whole dependency closure, distributing it distributes that
-# object code — so the dependencies' license terms must travel with the artifact.
-#
-# Output is regenerated per build and never committed (see .gitignore).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,10 +17,6 @@ if ! command -v cargo-about >/dev/null 2>&1; then
 fi
 log "using cargo-about $(cargo-about --version)"
 
-# `about.toml` carries the accepted-license allowlist and the shipped targets;
-# `about.hbs` is the plain-text template. `[private] ignore = true` drops the
-# first-party `adpt` crate so only third-party dependencies are emitted. --fail
-# aborts if any crate's license is missing or outside the allowlist.
 RAW="$(mktemp)"
 trap 'rm -f "$RAW"' EXIT
 log "generating licenses for the adpt dependency closure"

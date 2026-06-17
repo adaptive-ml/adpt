@@ -61,7 +61,6 @@ struct Cli {
     markdown_help: bool,
 }
 
-/// Third-party license notices, embedded at build time (see build.rs).
 const THIRD_PARTY_LICENSES: &str =
     include_str!(concat!(env!("OUT_DIR"), "/third_party_licenses.txt"));
 

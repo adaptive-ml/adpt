@@ -1,7 +1,3 @@
-# cargo-about config for the third-party attribution bundled with adpt releases.
-# The shipped binary statically links the crate closure below, so distributing it
-# distributes that object code — their license terms must travel with the artifact.
-# Generated via scripts/generate-third-party-licenses.sh; the output is never committed.
 accepted = [
     "MIT",
     "MIT-0",
@@ -22,7 +18,6 @@ accepted = [
     "WTFPL",
 ]
 
-# adpt ships binaries for these targets (see .github/workflows/release.yml).
 targets = [
     "x86_64-unknown-linux-gnu",
     "aarch64-apple-darwin",

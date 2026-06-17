@@ -7,8 +7,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Work around intermittent "HTTP2 framing layer" errors when cargo refreshes
-  # the crates.io index in CI.
   CARGO_HTTP_MULTIPLEXING: false
   CARGO_NET_RETRY: 10
 
@@ -68,8 +66,6 @@ jobs:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
 
-      # Generate before building so the notices get embedded into the binary
-      # (build.rs picks up THIRD_PARTY_LICENSES.txt for `adpt --licenses`).
       - name: Generate third-party licenses
         shell: bash
         run: scripts/generate-third-party-licenses.sh
