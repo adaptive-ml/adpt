@@ -50,13 +50,19 @@ const DEFAULT_ADAPTIVE_BASE_URL: &str = "https://app.adaptive.ml";
 #[command(about = "A tool interacting with the Adaptive platform")]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
     /// Use a specific deployment for this invocation, overriding the active one
     #[arg(long, global = true)]
     deployment: Option<String>,
+    /// Print the third-party license notices for adpt's dependencies and exit
+    #[arg(long)]
+    licenses: bool,
     #[arg(long, hide = true)]
     markdown_help: bool,
 }
+
+const THIRD_PARTY_LICENSES: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/third_party_licenses.txt"));
 
 #[derive(Args)]
 struct RunArgs {
@@ -372,11 +378,20 @@ fn main() -> Result<()> {
         clap_markdown::print_help_markdown::<Cli>();
         return Ok(());
     }
-    let _title_guard = TitleGuard::new(&format!("adpt - {}", cli.command.name()));
+    if cli.licenses {
+        print!("{THIRD_PARTY_LICENSES}");
+        return Ok(());
+    }
+    let Some(command) = cli.command else {
+        Cli::command().print_help()?;
+        println!();
+        return Ok(());
+    };
+    let _title_guard = TitleGuard::new(&format!("adpt - {}", command.name()));
 
     let deployment_override = cli.deployment.clone();
     rt.block_on(async {
-        match cli.command {
+        match command {
             Commands::Deployment { command } => {
                 handle_deployment_command(command, deployment_override.as_deref())
             }

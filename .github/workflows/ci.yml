@@ -8,6 +8,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_HTTP_MULTIPLEXING: false
+  CARGO_NET_RETRY: 10
 
 jobs:
   check:
@@ -107,3 +109,25 @@ jobs:
         with:
           name: adpt-macos
           path: target/debug/adpt
+
+  third-party-licenses:
+    name: Third-party licenses
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-about
+        run: cargo install cargo-about --locked --features cli
+
+      - name: Generate third-party licenses
+        run: scripts/generate-third-party-licenses.sh
+
+      - name: Upload third-party licenses
+        uses: actions/upload-artifact@v7
+        with:
+          name: third-party-licenses
+          path: THIRD_PARTY_LICENSES.txt

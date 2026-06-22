@@ -7,6 +7,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_HTTP_MULTIPLEXING: false
+  CARGO_NET_RETRY: 10
 
 jobs:
   build_release:
@@ -49,6 +51,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: cargo install cargo-generate-rpm
 
+      - name: Install cargo-about
+        run: cargo install cargo-about --locked --features cli
+
       - name: Cache cargo registry
         uses: actions/cache@v5
         with:
@@ -60,6 +65,10 @@ jobs:
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Generate third-party licenses
+        shell: bash
+        run: scripts/generate-third-party-licenses.sh
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
@@ -90,6 +99,14 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: "*.rpm"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload third-party licenses
+        if: matrix.os == 'ubuntu-latest'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: THIRD_PARTY_LICENSES.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -43,7 +43,7 @@ This document contains the help content for the `adpt` command-line program.
 
 A tool interacting with the Adaptive platform
 
-**Usage:** `adpt [OPTIONS] <COMMAND>`
+**Usage:** `adpt [OPTIONS] [COMMAND]`
 
 ###### **Subcommands:**
 
@@ -65,6 +65,7 @@ A tool interacting with the Adaptive platform
 ###### **Options:**
 
 * `--deployment <DEPLOYMENT>` — Use a specific deployment for this invocation, overriding the active one
+* `--licenses` — Print the third-party license notices for adpt's dependencies and exit
 
 
 
