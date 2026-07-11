@@ -701,14 +701,32 @@ async fn publish_recipe<P: AsRef<Path>>(
     let entrypoint = resolve_entrypoint(recipe.as_ref(), entrypoint)?;
     let entrypoint_config = resolve_entrypoint(recipe.as_ref(), entrypoint_config)?;
 
-    let name = name.unwrap_or_else(|| {
-        recipe
-            .as_ref()
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .into_owned()
-    });
+    let name = match name {
+        Some(n) => n,
+        None => key
+            .clone()
+            .or_else(|| {
+                entrypoint.as_deref().and_then(|ep| {
+                    Path::new(ep)
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().into_owned())
+                        .filter(|s| !s.is_empty())
+                })
+            })
+            .or_else(|| {
+                recipe
+                    .as_ref()
+                    .canonicalize()
+                    .ok()
+                    .and_then(|p| p.file_name().map(|s| s.to_string_lossy().into_owned()))
+            })
+            .ok_or_else(|| {
+                anyhow!(
+                    "could not derive a name from recipe path {:?}; pass --name explicitly",
+                    recipe.as_ref()
+                )
+            })?,
+    };
     let key = key.unwrap_or_else(|| slugify(&name));
 
     let existing = client.get_recipe(project.to_string(), key.clone()).await?;
