@@ -20,7 +20,7 @@ dotenvy = "0.15.7"
 envy = "0.4.2"
 graphql_client = "0.15.0"
 iocraft = "0.8.0"
-keyring = { version = "3.6.3", features = [
+keyring = { version = "4.0.0", features = [
     "apple-native",
     "crypto-rust",
     "sync-secret-service",
