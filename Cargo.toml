@@ -18,7 +18,7 @@ clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
 directories = "6.0.0"
 dotenvy = "0.15.7"
 envy = "0.4.2"
-graphql_client = "0.15.0"
+graphql_client = "0.16.0"
 iocraft = "0.8.0"
 keyring = { version = "3.6.3", features = [
     "apple-native",
